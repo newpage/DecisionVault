@@ -1,0 +1,3 @@
+export const API=process.env.NEXT_PUBLIC_API_URL||"http://localhost:8000/api/v1";
+export function token(){return typeof window!=="undefined"?localStorage.getItem("dv_token"):null}
+export async function api<T>(path:string,init:RequestInit={}):Promise<T>{const headers=new Headers(init.headers);if(!(init.body instanceof FormData))headers.set("Content-Type","application/json");const t=token();if(t)headers.set("Authorization",`Bearer ${t}`);const r=await fetch(`${API}${path}`,{...init,headers,cache:"no-store"});if(r.status===401&&typeof window!=="undefined"){localStorage.removeItem("dv_token");location.href="/login"}if(!r.ok)throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail||r.statusText);return r.json()}
