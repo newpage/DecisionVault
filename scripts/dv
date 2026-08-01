@@ -1,21 +1,65 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+resolve_script_dir() {
+  local source="${BASH_SOURCE[0]}"
+  local dir
+
+  while [[ -L "${source}" ]]; do
+    dir="$(cd -P -- "$(dirname -- "${source}")" && pwd)"
+    source="$(readlink -- "${source}")"
+    [[ "${source}" = /* ]] || source="${dir}/${source}"
+  done
+
+  cd -P -- "$(dirname -- "${source}")" && pwd
+}
+
+SCRIPT_DIR="$(resolve_script_dir)"
+REPO_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+
 command="${1:-help}"
 [[ $# -eq 0 ]] || shift
 
 case "${command}" in
-  deploy) exec "${SCRIPT_DIR}/server-deploy.sh" "$@" ;;
-  update) exec "${SCRIPT_DIR}/server-update.sh" "$@" ;;
-  doctor) exec "${SCRIPT_DIR}/server-doctor.sh" "$@" ;;
-  status) exec "${SCRIPT_DIR}/server-status.sh" "$@" ;;
-  logs) exec "${SCRIPT_DIR}/server-logs.sh" "$@" ;;
-  backup) exec "${SCRIPT_DIR}/server-backup.sh" "$@" ;;
-  diag) exec "${SCRIPT_DIR}/server-diag.sh" "$@" ;;
-  version)
-    printf 'DecisionVault %s (%s)\n' "$(cat "${SCRIPT_DIR}/../VERSION")" "$(git -C "${SCRIPT_DIR}/.." rev-parse --short HEAD)"
+  deploy)
+    exec "${SCRIPT_DIR}/server-deploy.sh" "$@"
     ;;
-  shell) cd "${SCRIPT_DIR}/.."; exec "${SHELL:-bash}" ;;
+  update)
+    exec "${SCRIPT_DIR}/server-update.sh" "$@"
+    ;;
+  doctor)
+    exec "${SCRIPT_DIR}/server-doctor.sh" "$@"
+    ;;
+  status)
+    exec "${SCRIPT_DIR}/server-status.sh" "$@"
+    ;;
+  logs)
+    exec "${SCRIPT_DIR}/server-logs.sh" "$@"
+    ;;
+  backup)
+    exec "${SCRIPT_DIR}/server-backup.sh" "$@"
+    ;;
+  diag)
+    exec "${SCRIPT_DIR}/server-diag.sh" "$@"
+    ;;
+  version)
+    version="unknown"
+    commit="unknown"
+
+    if [[ -f "${REPO_DIR}/VERSION" ]]; then
+      version="$(tr -d '[:space:]' < "${REPO_DIR}/VERSION")"
+    fi
+
+    if [[ -d "${REPO_DIR}/.git" ]]; then
+      commit="$(git -C "${REPO_DIR}" rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+    fi
+
+    printf 'DecisionVault %s (%s)\n' "${version}" "${commit}"
+    ;;
+  shell)
+    cd "${REPO_DIR}"
+    exec "${SHELL:-bash}"
+    ;;
   help|-h|--help)
     cat <<'EOF'
 DecisionVault CLI
@@ -32,5 +76,8 @@ Usage:
   dv shell
 EOF
     ;;
-  *) echo "Unknown command: ${command}" >&2; exec "$0" help ;;
+  *)
+    echo "Unknown command: ${command}" >&2
+    exec "$0" help
+    ;;
 esac
