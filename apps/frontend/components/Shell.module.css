@@ -1,0 +1,269 @@
+.shell{
+  transition:grid-template-columns .2s ease;
+}
+
+.shellCollapsed{
+  grid-template-columns:82px minmax(0,1fr) !important;
+}
+
+.shellLoading{
+  visibility:hidden;
+}
+
+.sidebar{
+  position:sticky;
+  overflow:visible;
+  transition:width .2s ease,padding .2s ease;
+}
+
+.collapseButton{
+  position:absolute;
+  z-index:5;
+  top:24px;
+  right:-14px;
+  width:29px;
+  height:29px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid var(--dv-border-strong);
+  border-radius:999px;
+  background:#102035;
+  color:#a9bbcf;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(0,0,0,.25);
+  transition:background .15s ease,color .15s ease,transform .15s ease;
+}
+
+.collapseButton:hover{
+  background:#18304b;
+  color:#fff;
+  transform:scale(1.04);
+}
+
+.corporateBrand,
+.productBrand,
+.navigationLabel,
+.signoutLabel,
+.ownership,
+.release{
+  transition:opacity .14s ease,max-width .2s ease,max-height .2s ease;
+}
+
+.navigationLink{
+  overflow:hidden;
+  white-space:nowrap;
+}
+
+.navigationIcon{
+  flex:0 0 auto;
+}
+
+.sidebarCollapsed{
+  padding-left:13px !important;
+  padding-right:13px !important;
+}
+
+.sidebarCollapsed .corporateBrand{
+  min-height:28px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+}
+
+.sidebarCollapsed .corporateBrand :global(.discovera-signature){
+  width:40px;
+  align-items:center;
+  overflow:hidden;
+}
+
+.sidebarCollapsed .corporateBrand :global(.discovera-signature img){
+  width:38px !important;
+  max-width:38px !important;
+  height:22px !important;
+  object-fit:contain;
+  object-position:left center;
+}
+
+.sidebarCollapsed .corporateBrand :global(.discovera-signature span){
+  display:none;
+}
+
+.sidebarCollapsed .productBrand{
+  margin:12px 0 16px;
+  padding:13px 0;
+  display:grid;
+  place-items:center;
+}
+
+.sidebarCollapsed .productBrand :global(.dv-product-brand){
+  justify-content:center;
+}
+
+.sidebarCollapsed .productBrand :global(.dv-product-brand>div:last-child){
+  display:none;
+}
+
+.sidebarCollapsed .productBrand :global(.dv-product-mark-small){
+  width:31px;
+  height:31px;
+}
+
+.sidebarCollapsed .navigation{
+  gap:6px;
+}
+
+.sidebarCollapsed .navigationLink{
+  width:48px;
+  min-height:44px;
+  margin-left:auto;
+  margin-right:auto;
+  padding:0 !important;
+  justify-content:center;
+  gap:0 !important;
+}
+
+.sidebarCollapsed .navigationLink:global(.dv-nav-active){
+  box-shadow:inset 3px 0 0 var(--dv-cyan);
+}
+
+.sidebarCollapsed .navigationLabel{
+  width:0;
+  max-width:0;
+  opacity:0;
+  overflow:hidden;
+}
+
+.sidebarCollapsed .sidebarBottom{
+  display:grid;
+  justify-items:center;
+}
+
+.sidebarCollapsed .signout{
+  width:48px !important;
+  min-height:42px;
+  padding:0 !important;
+  gap:0 !important;
+}
+
+.sidebarCollapsed .signoutLabel{
+  width:0;
+  max-width:0;
+  opacity:0;
+  overflow:hidden;
+}
+
+.sidebarCollapsed .sidebarMeta{
+  width:48px;
+  justify-items:center;
+  text-align:center;
+  gap:3px;
+}
+
+.sidebarCollapsed .ownership{
+  display:none;
+}
+
+.sidebarCollapsed .release{
+  font-size:8px;
+  line-height:1.3;
+  letter-spacing:.04em;
+  overflow-wrap:anywhere;
+}
+
+@media(max-width:920px){
+  .shellCollapsed{
+    grid-template-columns:1fr !important;
+  }
+
+  .collapseButton{
+    display:none;
+  }
+
+  .sidebarCollapsed{
+    padding:24px 18px 18px !important;
+  }
+
+  .sidebarCollapsed .corporateBrand{
+    display:block;
+    min-height:unset;
+    overflow:visible;
+  }
+
+  .sidebarCollapsed .corporateBrand :global(.discovera-signature){
+    width:auto;
+    align-items:flex-start;
+    overflow:visible;
+  }
+
+  .sidebarCollapsed .corporateBrand :global(.discovera-signature img){
+    width:auto !important;
+    max-width:132px !important;
+    height:auto !important;
+  }
+
+  .sidebarCollapsed .corporateBrand :global(.discovera-signature span){
+    display:block;
+  }
+
+  .sidebarCollapsed .productBrand{
+    display:block;
+    margin:18px 0 20px;
+    padding:18px 0;
+  }
+
+  .sidebarCollapsed .productBrand :global(.dv-product-brand){
+    justify-content:flex-start;
+  }
+
+  .sidebarCollapsed .productBrand :global(.dv-product-brand>div:last-child){
+    display:block;
+  }
+
+  .sidebarCollapsed .navigation{
+    gap:3px;
+  }
+
+  .sidebarCollapsed .navigationLink{
+    width:auto;
+    min-height:42px;
+    margin:3px 0;
+    padding:11px 12px !important;
+    justify-content:flex-start;
+    gap:10px !important;
+  }
+
+  .sidebarCollapsed .navigationLabel,
+  .sidebarCollapsed .signoutLabel{
+    width:auto;
+    max-width:none;
+    opacity:1;
+    overflow:visible;
+  }
+
+  .sidebarCollapsed .sidebarBottom{
+    display:block;
+  }
+
+  .sidebarCollapsed .signout{
+    width:100% !important;
+    min-height:unset;
+    padding:10px 14px !important;
+    gap:8px !important;
+  }
+
+  .sidebarCollapsed .sidebarMeta{
+    width:auto;
+    justify-items:start;
+    text-align:left;
+    gap:5px;
+  }
+
+  .sidebarCollapsed .ownership{
+    display:block;
+  }
+
+  .sidebarCollapsed .release{
+    font-size:9px;
+  }
+}
