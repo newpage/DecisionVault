@@ -53,5 +53,15 @@ dv_require() {
 }
 
 dv_http_ok() {
-  curl --silent --show-error --fail --location --max-time "${2:-8}" "$1" >/dev/null
+  curl \
+    --silent \
+    --fail \
+    --location \
+    --retry 2 \
+    --retry-delay 1 \
+    --retry-connrefused \
+    --connect-timeout 3 \
+    --max-time "${2:-10}" \
+    "$1" \
+    >/dev/null 2>&1
 }
