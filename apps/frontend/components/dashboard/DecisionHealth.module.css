@@ -1,0 +1,22 @@
+.health{display:grid;gap:17px}
+.row{display:grid;gap:8px}
+.label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  color:var(--dv-muted);
+  font-size:11px;
+}
+.label strong{color:#dbe6f2}
+.track{
+  height:8px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#071321;
+}
+.track span{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#318e9b,var(--dv-cyan));
+}
