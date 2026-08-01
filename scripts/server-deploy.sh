@@ -4,9 +4,16 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
+if [[ -f "${REPO_DIR}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${REPO_DIR}/.env"
+  set +a
+fi
+
 BRANCH="${DV_DEPLOY_BRANCH:-main}"
 BACKEND_PORT="${DV_BACKEND_PORT:-8200}"
-FRONTEND_PORT="${DV_FRONTEND_PORT:-3000}"
+FRONTEND_PORT="${DV_FRONTEND_PORT:-3200}"
 HEALTH_TIMEOUT="${DV_HEALTH_TIMEOUT:-180}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-decisionvault}"
 
@@ -32,7 +39,7 @@ Options:
 
 Environment:
   DV_BACKEND_PORT       Host-only backend port. Default: 8200
-  DV_FRONTEND_PORT      Host-only frontend port. Default: 3000
+  DV_FRONTEND_PORT      Host-only frontend port. Default: 3200
   DV_HEALTH_TIMEOUT     Seconds to wait for healthy services. Default: 180
   DV_DEPLOY_BRANCH      Default branch when --branch is omitted
   COMPOSE_PROJECT_NAME  Docker Compose project name. Default: decisionvault
