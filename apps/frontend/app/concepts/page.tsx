@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
+import Link from "next/link";
 import {useEffect, useMemo, useState} from "react";
 import Shell from "@/components/Shell";
 import {Card, PageHeader} from "@/components/Page";
@@ -132,32 +133,34 @@ export default function BusinessConceptsPage() {
           {concepts.map((concept) => {
             const Icon = iconMap[concept.icon as keyof typeof iconMap] ?? Network;
             return (
-              <Card key={concept.id} className="concept-card">
-                <div
-                  className="concept-accent"
-                  style={{background: concept.color}}
-                />
-                <div>
-                  <div className="row between">
-                    <div
-                      className="concept-icon"
-                      style={{color: concept.color}}
-                    >
-                      <Icon size={22} />
+              <Link href={`/concepts/${concept.id}`} key={concept.id}>
+                <Card className="concept-card">
+                  <div
+                    className="concept-accent"
+                    style={{background: concept.color}}
+                  />
+                  <div>
+                    <div className="row between">
+                      <div
+                        className="concept-icon"
+                        style={{color: concept.color}}
+                      >
+                        <Icon size={22} />
+                      </div>
+                      <span className="category-pill">{concept.category}</span>
                     </div>
-                    <span className="category-pill">{concept.category}</span>
+                    <h2>{concept.name}</h2>
+                    <p>{concept.description}</p>
                   </div>
-                  <h2>{concept.name}</h2>
-                  <p>{concept.description}</p>
-                </div>
-                <div className="concept-meta">
-                  <span>
-                    <span className="concept-count">{concept.knowledge_count}</span>
-                    {" "}Knowledge Cards
-                  </span>
-                  <span className="status">{concept.status}</span>
-                </div>
-              </Card>
+                  <div className="concept-meta">
+                    <span>
+                      <span className="concept-count">{concept.knowledge_count}</span>
+                      {" "}Knowledge Cards
+                    </span>
+                    <span className="status">{concept.status}</span>
+                  </div>
+                </Card>
+              </Link>
             );
           })}
         </div>

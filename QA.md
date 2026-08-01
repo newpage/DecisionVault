@@ -1,15 +1,15 @@
-# QA — Sprint 3 RUP-3.1
+# QA Checklist — DecisionVault 0.3.2
 
-- [ ] Apply package and commit.
-- [ ] Deploy with a fresh database.
-- [ ] Log in with the demo account.
-- [ ] Business Concepts appears in navigation.
-- [ ] Business Concepts page displays six concept cards.
-- [ ] Supplier Qualification displays one connected Knowledge Card.
-- [ ] Searching for `validation` returns Software Validation.
-- [ ] Searching for `Quality` returns relevant concepts.
-- [ ] Clearing search restores all concepts.
-- [ ] Mobile/narrow browser layout collapses to one column.
-- [ ] Existing Knowledge Cards page still loads.
-- [ ] Existing upload, Ask, Decision Center, and Governance pages still load.
+- [ ] Frontend Docker image builds.
+- [ ] Backend tests pass.
+- [ ] Existing login works.
+- [ ] Business Concepts page loads.
+- [ ] Clicking a concept opens `/concepts/{id}`.
+- [ ] Supplier Qualification shows one connected Knowledge Card.
+- [ ] Decision Readiness and Knowledge Health show 100% for the seeded approved card.
+- [ ] Empty concepts show zero calculated metrics without errors.
+- [ ] Related Concepts links navigate correctly.
+- [ ] Browser back navigation returns to Business Concepts.
+- [ ] Existing Knowledge, Ask, Decisions, Governance, Upload, and Dashboard pages still load.
 - [ ] No browser console errors.
+- [ ] `dv status` reports backend and frontend PASS.
