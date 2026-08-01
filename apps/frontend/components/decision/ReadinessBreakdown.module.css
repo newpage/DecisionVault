@@ -1,0 +1,8 @@
+.list{display:grid;gap:17px}
+.factor{display:grid;gap:7px}
+.heading{display:flex;justify-content:space-between;gap:12px;color:var(--dv-muted);font-size:10px}
+.heading strong{color:#dfe9f3}
+.track{height:8px;overflow:hidden;border-radius:999px;background:#071321}
+.track span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#318e91,var(--dv-cyan))}
+.factor small{color:var(--dv-subtle);font-size:8px}
+.empty{min-height:140px;display:grid;place-items:center;text-align:center;color:var(--dv-muted);font-size:10px}
