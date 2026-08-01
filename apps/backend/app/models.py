@@ -98,6 +98,22 @@ class Workspace(Base):
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__=(UniqueConstraint("tenant_id","name"),)
 
+
+class BusinessConcept(Base):
+    __tablename__="business_concepts"
+    id: Mapped[str]=mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str]=mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str]=mapped_column(String(180))
+    slug: Mapped[str]=mapped_column(String(180))
+    description: Mapped[str]=mapped_column(Text, default="")
+    category: Mapped[str]=mapped_column(String(80), default="Operations", index=True)
+    icon: Mapped[str]=mapped_column(String(60), default="Network")
+    color: Mapped[str]=mapped_column(String(20), default="#24a99b")
+    status: Mapped[str]=mapped_column(String(40), default="active", index=True)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    __table_args__=(UniqueConstraint("tenant_id","slug"),)
+
 class SourceDocument(Base):
     __tablename__="source_documents"
     id: Mapped[str]=mapped_column(String(36), primary_key=True, default=uid)
@@ -126,6 +142,7 @@ class KnowledgeCard(Base):
     id: Mapped[str]=mapped_column(String(36), primary_key=True, default=uid)
     tenant_id: Mapped[str]=mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     workspace_id: Mapped[str]=mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    business_concept_id: Mapped[str|None]=mapped_column(ForeignKey("business_concepts.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str]=mapped_column(String(240))
     summary: Mapped[str]=mapped_column(Text)
     body: Mapped[str]=mapped_column(Text)
@@ -166,6 +183,7 @@ class DecisionCase(Base):
     id: Mapped[str]=mapped_column(String(36), primary_key=True, default=uid)
     tenant_id: Mapped[str]=mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
     workspace_id: Mapped[str]=mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    business_concept_id: Mapped[str|None]=mapped_column(ForeignKey("business_concepts.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str]=mapped_column(String(240))
     question: Mapped[str]=mapped_column(Text)
     status: Mapped[str]=mapped_column(String(40), default="analysis")
