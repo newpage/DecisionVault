@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 from app.core.database import Base
@@ -186,11 +186,24 @@ class DecisionCase(Base):
     business_concept_id: Mapped[str|None]=mapped_column(ForeignKey("business_concepts.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str]=mapped_column(String(240))
     question: Mapped[str]=mapped_column(Text)
-    status: Mapped[str]=mapped_column(String(40), default="analysis")
+    status: Mapped[str]=mapped_column(String(40), default="draft", index=True)
     recommendation: Mapped[str]=mapped_column(Text, default="")
     confidence: Mapped[float]=mapped_column(Float, default=0)
+    supplier_name: Mapped[str]=mapped_column(String(180), default="")
+    supplier_category: Mapped[str]=mapped_column(String(120), default="Electronic Manufacturer")
+    supplier_location: Mapped[str]=mapped_column(String(180), default="")
+    owner_name: Mapped[str]=mapped_column(String(180), default="")
+    due_date: Mapped[date|None]=mapped_column(Date, nullable=True)
+    priority: Mapped[str]=mapped_column(String(30), default="high", index=True)
+    risk_level: Mapped[str]=mapped_column(String(30), default="medium", index=True)
+    decision_type: Mapped[str]=mapped_column(String(60), default="initial_qualification")
+    business_unit: Mapped[str]=mapped_column(String(180), default="Electronics Supply Chain")
+    readiness_score: Mapped[int]=mapped_column(Integer, default=0)
+    readiness_status: Mapped[str]=mapped_column(String(60), default="insufficient_evidence")
+    evidence_summary: Mapped[dict]=mapped_column(JSON, default=dict)
     created_by: Mapped[str]=mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 class DecisionEvidence(Base):
     __tablename__="decision_evidence"
