@@ -17,7 +17,7 @@ services:
     build: ./apps/backend
     env_file: .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${DV_BACKEND_PORT:-8200}:8000"
     volumes:
       - decisionvault_storage:/data/storage
     depends_on:
@@ -51,7 +51,7 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${DV_FRONTEND_PORT:-3200}:3000"
     depends_on:
       backend:
         condition: service_healthy
