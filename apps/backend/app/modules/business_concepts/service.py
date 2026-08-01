@@ -12,6 +12,11 @@ from app.modules.business_concepts.schemas import (
     ConceptMetric,
     RelatedConcept,
 )
+from app.modules.business_concepts.scoring import (
+    assess_knowledge,
+    calculate_readiness,
+    detect_findings,
+)
 
 
 class BusinessConceptNotFoundError(LookupError):
@@ -78,18 +83,12 @@ class BusinessConceptService:
             concept=concept,
         )
 
-        approved_count = sum(
-            1 for card in knowledge if card.approval_status == "approved"
-        )
-        trusted_count = sum(1 for card in knowledge if card.trust_score >= 0.8)
-        readiness = (
-            round((approved_count / len(knowledge)) * 100)
-            if knowledge
-            else 0
-        )
-        knowledge_health = (
-            round((trusted_count / len(knowledge)) * 100)
-            if knowledge
+        assessment = assess_knowledge(knowledge)
+        readiness = calculate_readiness(assessment)
+        findings = detect_findings(knowledge)
+        health = (
+            round(assessment.trusted / assessment.total * 100)
+            if assessment.total
             else 0
         )
 
@@ -110,51 +109,72 @@ class BusinessConceptService:
                     f"context so teams can make consistent decisions. "
                     f"{concept.description}"
                 ),
-                confidence=max(72, knowledge_health),
+                confidence=max(72, health),
                 generated_at=datetime.now(timezone.utc),
             ),
             metrics=[
                 ConceptMetric(
                     key="knowledge",
                     label="Knowledge Cards",
-                    value=len(knowledge),
+                    value=assessment.total,
                     source="calculated",
-                    status="good" if knowledge else "attention",
+                    status="good" if assessment.total else "attention",
+                    explanation=(
+                        "Count of Knowledge Cards directly connected to this "
+                        "Business Concept."
+                    ),
                 ),
                 ConceptMetric(
                     key="readiness",
                     label="Decision Readiness",
-                    value=readiness,
+                    value=readiness.score,
                     source="calculated",
                     status=(
                         "good"
-                        if readiness >= 80
+                        if readiness.score >= 80
                         else "watch"
-                        if readiness >= 50
+                        if readiness.score >= 50
                         else "attention"
                     ),
+                    explanation=readiness.formula,
                 ),
                 ConceptMetric(
                     key="health",
                     label="Knowledge Health",
-                    value=knowledge_health,
+                    value=health,
                     source="calculated",
                     status=(
                         "good"
-                        if knowledge_health >= 80
+                        if health >= 80
                         else "watch"
-                        if knowledge_health >= 50
+                        if health >= 50
                         else "attention"
+                    ),
+                    explanation=(
+                        "Percentage of connected Knowledge Cards with a trust "
+                        "score of at least 80%."
                     ),
                 ),
                 ConceptMetric(
-                    key="relationships",
-                    label="Related Concepts",
-                    value=len(related),
+                    key="findings",
+                    label="Open Findings",
+                    value=len(findings),
                     source="calculated",
-                    status="good",
+                    status=(
+                        "good"
+                        if not findings
+                        else "watch"
+                        if all(item.severity == "low" for item in findings)
+                        else "attention"
+                    ),
+                    explanation=(
+                        "Count of detected governance or knowledge-quality "
+                        "conditions requiring attention."
+                    ),
                 ),
             ],
+            score_explanation=readiness,
+            findings=findings,
             knowledge=[
                 ConceptKnowledgeItem(
                     id=card.id,
@@ -163,6 +183,7 @@ class BusinessConceptService:
                     lifecycle_status=card.lifecycle_status,
                     approval_status=card.approval_status,
                     trust_score=card.trust_score,
+                    ai_usage_allowed=card.ai_usage_allowed,
                     updated_at=card.created_at,
                 )
                 for card in knowledge

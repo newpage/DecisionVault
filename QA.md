@@ -1,15 +1,14 @@
-# QA Checklist — DecisionVault 0.3.2
+# QA Checklist — DecisionVault 0.3.3
 
-- [ ] Frontend Docker image builds.
+- [ ] Frontend and backend Docker images build.
 - [ ] Backend tests pass.
-- [ ] Existing login works.
-- [ ] Business Concepts page loads.
-- [ ] Clicking a concept opens `/concepts/{id}`.
-- [ ] Supplier Qualification shows one connected Knowledge Card.
-- [ ] Decision Readiness and Knowledge Health show 100% for the seeded approved card.
-- [ ] Empty concepts show zero calculated metrics without errors.
-- [ ] Related Concepts links navigate correctly.
-- [ ] Browser back navigation returns to Business Concepts.
-- [ ] Existing Knowledge, Ask, Decisions, Governance, Upload, and Dashboard pages still load.
-- [ ] No browser console errors.
+- [ ] Supplier Qualification workspace loads.
+- [ ] Decision Readiness displays 100% for the seeded approved/trusted/current/AI-eligible card.
+- [ ] Clicking each metric information icon shows its calculation.
+- [ ] “Why this score” shows four weighted factors totaling 100 points.
+- [ ] Empty concepts display a zero score and “No connected knowledge” finding.
+- [ ] Findings include a recommended action.
+- [ ] Connected Knowledge displays AI restriction when applicable.
+- [ ] Existing Business Concept list and search remain functional.
+- [ ] Existing product pages remain functional.
 - [ ] `dv status` reports backend and frontend PASS.

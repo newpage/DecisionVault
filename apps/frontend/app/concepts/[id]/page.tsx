@@ -7,8 +7,10 @@ import {useParams} from "next/navigation";
 import Shell from "@/components/Shell";
 import {Card} from "@/components/Page";
 import ActivityFeed from "@/components/workspace/ActivityFeed";
+import FindingsPanel from "@/components/workspace/FindingsPanel";
 import MetricCard from "@/components/workspace/MetricCard";
 import RelatedConcepts from "@/components/workspace/RelatedConcepts";
+import ScoreExplanation from "@/components/workspace/ScoreExplanation";
 import SummaryPanel from "@/components/workspace/SummaryPanel";
 import {api} from "@/lib/api";
 
@@ -33,6 +35,29 @@ type Workspace = {
     value: number;
     source: "calculated" | "demo";
     status: "good" | "watch" | "attention";
+    explanation: string;
+  }>;
+  score_explanation: {
+    label: string;
+    score: number;
+    rating: "strong" | "developing" | "needs_attention";
+    formula: string;
+    factors: Array<{
+      key: string;
+      label: string;
+      achieved: number;
+      possible: number;
+      explanation: string;
+    }>;
+  };
+  findings: Array<{
+    id: string;
+    finding_type: string;
+    severity: "high" | "medium" | "low";
+    title: string;
+    description: string;
+    recommended_action: string;
+    affected_count: number;
   }>;
   knowledge: Array<{
     id: string;
@@ -41,6 +66,7 @@ type Workspace = {
     lifecycle_status: string;
     approval_status: string;
     trust_score: number;
+    ai_usage_allowed: boolean;
     updated_at: string;
   }>;
   activity: Array<{
@@ -122,6 +148,7 @@ export default function BusinessConceptWorkspacePage() {
                 }
                 source={metric.source}
                 status={metric.status}
+                explanation={metric.explanation}
               />
             ))}
           </div>
@@ -131,6 +158,11 @@ export default function BusinessConceptWorkspacePage() {
             confidence={workspace.insight.confidence}
             source={workspace.insight.source}
           />
+
+          <div className="workspace-intelligence-grid">
+            <ScoreExplanation {...workspace.score_explanation} />
+            <FindingsPanel findings={workspace.findings} />
+          </div>
 
           <div className="workspace-columns">
             <section className="card workspace-panel workspace-knowledge">
@@ -159,6 +191,9 @@ export default function BusinessConceptWorkspacePage() {
                           <span className="muted small-text">
                             Trust {Math.round(item.trust_score * 100)}%
                           </span>
+                          {!item.ai_usage_allowed ? (
+                            <span className="badge">AI restricted</span>
+                          ) : null}
                         </div>
                       </div>
                       <ChevronRight size={18} />
