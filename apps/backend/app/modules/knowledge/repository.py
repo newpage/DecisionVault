@@ -1,0 +1,2 @@
+class KnowledgeRepository:
+    pass
