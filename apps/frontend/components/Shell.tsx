@@ -1,4 +1,22 @@
 "use client";
-import Link from "next/link";import {usePathname} from "next/navigation";import {BookOpen,BrainCircuit,Building2,FileUp,Gauge,GitBranch,LogOut,Network,Scale,ShieldCheck} from "lucide-react";
+import Link from "next/link";
+import {usePathname} from "next/navigation";
+import {BookOpen,BrainCircuit,Building2,FileUp,Gauge,LogOut,Network,Scale,ShieldCheck} from "lucide-react";
+
+const RELEASE="0.3.4";
 const links=[["/dashboard","Dashboard",Gauge],["/concepts","Business Concepts",Network],["/knowledge","Knowledge Cards",BookOpen],["/sources","Sources",FileUp],["/ask","Ask DecisionVault",BrainCircuit],["/decisions","Decision Center",Scale],["/governance","Governance",ShieldCheck],["/workspaces","Workspaces",Building2]] as const;
-export default function Shell({children}:{children:React.ReactNode}){const path=usePathname();function logout(){localStorage.removeItem("dv_token");location.href="/login"}return <div className="shell"><aside className="sidebar"><div className="brand">Decision<span>Vault</span></div><div className="tag">TRUSTED DECISION INTELLIGENCE</div><nav className="nav">{links.map(([href,label,Icon])=><Link key={href} href={href} style={path===href?{background:'#12213a',color:'#fff'}:{}}><Icon size={17}/>{label}</Link>)}</nav><button className="btn" onClick={logout} style={{marginTop:24,width:'100%'}}><LogOut size={15}/> Sign out</button></aside><main className="main">{children}</main></div>}
+
+export default function Shell({children}:{children:React.ReactNode}){
+  const path=usePathname();
+  function logout(){localStorage.removeItem("dv_token");location.href="/login"}
+  return <div className="shell">
+    <aside className="sidebar">
+      <div className="brand">Decision<span>Vault</span></div>
+      <div className="tag">TRUSTED DECISION INTELLIGENCE</div>
+      <nav className="nav">{links.map(([href,label,Icon])=><Link key={href} href={href} style={path===href?{background:"#12213a",color:"#fff"}:{}}><Icon size={17}/>{label}</Link>)}</nav>
+      <button className="btn" onClick={logout} style={{marginTop:24,width:"100%"}}><LogOut size={15}/> Sign out</button>
+      <div style={{marginTop:18,fontSize:11,color:"#667892"}}>Release {RELEASE}</div>
+    </aside>
+    <main className="main">{children}</main>
+  </div>
+}

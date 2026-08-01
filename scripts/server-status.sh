@@ -1,41 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-
-BACKEND_PORT="${DV_BACKEND_PORT:-8200}"
-FRONTEND_PORT="${DV_FRONTEND_PORT:-3000}"
-COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-decisionvault}"
-
+source "${SCRIPT_DIR}/lib/server-common.sh"
+dv_init
 cd "${REPO_DIR}"
 
-export DV_BACKEND_PORT="${BACKEND_PORT}"
-export DV_FRONTEND_PORT="${FRONTEND_PORT}"
-
-COMPOSE=(
-  docker compose
-  -p "${COMPOSE_PROJECT_NAME}"
-  -f docker-compose.yml
-  -f docker-compose.server.yml
-)
-
-echo "DecisionVault commit: $(git rev-parse --short HEAD)"
-echo
+printf 'DecisionVault %s (%s)\n' "$(dv_release)" "$(dv_commit)"
+printf 'Backend:  127.0.0.1:%s\nFrontend: 127.0.0.1:%s\n\n' "${DV_BACKEND_PORT}" "${DV_FRONTEND_PORT}"
 "${COMPOSE[@]}" ps
-echo
+printf '\n'
 
-if curl --silent --fail --max-time 5 \
-  "http://127.0.0.1:${BACKEND_PORT}/health"; then
-  echo
-  echo "Backend health: PASS"
-else
-  echo "Backend health: FAIL"
-fi
-
-if curl --silent --fail --max-time 5 \
-  "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null; then
-  echo "Frontend health: PASS"
-else
-  echo "Frontend health: FAIL"
-fi
+dv_http_ok "http://127.0.0.1:${DV_BACKEND_PORT}/health" && dv_ok "Backend health" || dv_bad "Backend health"
+dv_http_ok "http://127.0.0.1:${DV_FRONTEND_PORT}/" && dv_ok "Frontend health" || dv_bad "Frontend health"
+dv_http_ok "${DV_PUBLIC_URL}/" && dv_ok "Public HTTPS" || dv_warn "Public HTTPS unavailable"

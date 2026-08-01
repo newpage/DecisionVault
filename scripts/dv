@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+command="${1:-help}"
+[[ $# -eq 0 ]] || shift
+
+case "${command}" in
+  deploy) exec "${SCRIPT_DIR}/server-deploy.sh" "$@" ;;
+  update) exec "${SCRIPT_DIR}/server-update.sh" "$@" ;;
+  doctor) exec "${SCRIPT_DIR}/server-doctor.sh" "$@" ;;
+  status) exec "${SCRIPT_DIR}/server-status.sh" "$@" ;;
+  logs) exec "${SCRIPT_DIR}/server-logs.sh" "$@" ;;
+  backup) exec "${SCRIPT_DIR}/server-backup.sh" "$@" ;;
+  diag) exec "${SCRIPT_DIR}/server-diag.sh" "$@" ;;
+  version)
+    printf 'DecisionVault %s (%s)\n' "$(cat "${SCRIPT_DIR}/../VERSION")" "$(git -C "${SCRIPT_DIR}/.." rev-parse --short HEAD)"
+    ;;
+  shell) cd "${SCRIPT_DIR}/.."; exec "${SHELL:-bash}" ;;
+  help|-h|--help)
+    cat <<'EOF'
+DecisionVault CLI
+
+Usage:
+  dv doctor
+  dv status
+  dv update [deploy options]
+  dv deploy [--reset-db|--test|--skip-build]
+  dv logs [backend|frontend|worker|db|all] [lines]
+  dv backup
+  dv diag
+  dv version
+  dv shell
+EOF
+    ;;
+  *) echo "Unknown command: ${command}" >&2; exec "$0" help ;;
+esac

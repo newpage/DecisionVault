@@ -1,14 +1,13 @@
-# QA Checklist — DecisionVault 0.3.3
+# QA — DecisionVault 0.3.4
 
-- [ ] Frontend and backend Docker images build.
-- [ ] Backend tests pass.
-- [ ] Supplier Qualification workspace loads.
-- [ ] Decision Readiness displays 100% for the seeded approved/trusted/current/AI-eligible card.
-- [ ] Clicking each metric information icon shows its calculation.
-- [ ] “Why this score” shows four weighted factors totaling 100 points.
-- [ ] Empty concepts display a zero score and “No connected knowledge” finding.
-- [ ] Findings include a recommended action.
-- [ ] Connected Knowledge displays AI restriction when applicable.
-- [ ] Existing Business Concept list and search remain functional.
-- [ ] Existing product pages remain functional.
-- [ ] `dv status` reports backend and frontend PASS.
+- [ ] `bash -n scripts/*.sh scripts/lib/*.sh` passes.
+- [ ] `./scripts/install-dv-cli.sh` installs the repository-managed CLI.
+- [ ] `dv version` shows 0.3.4.
+- [ ] `dv doctor` validates ports 8200 and 3200.
+- [ ] `dv status` shows version, commit, containers, and health.
+- [ ] `dv logs frontend 50` follows only frontend logs.
+- [ ] `dv backup` creates SQL, storage, and manifest files.
+- [ ] `dv diag` creates a redacted diagnostics archive.
+- [ ] `dv deploy` does not stop the database during a normal deployment.
+- [ ] Backend `/health` reports version 0.3.4.
+- [ ] Sidebar displays Release 0.3.4.
