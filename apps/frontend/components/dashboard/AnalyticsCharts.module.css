@@ -1,0 +1,28 @@
+.horizontalBars{display:grid;gap:15px}
+.horizontalRow{display:grid;gap:7px}
+.horizontalLabel{display:flex;justify-content:space-between;gap:12px;font-size:10px;color:var(--dv-muted);text-transform:capitalize}
+.horizontalLabel strong{color:#dce7f2}
+.track{height:8px;overflow:hidden;border-radius:999px;background:#071321}
+.track span{display:block;height:100%;border-radius:999px}
+.cyan{background:linear-gradient(90deg,#2f8e91,var(--dv-cyan))}
+.blue{background:linear-gradient(90deg,#3f6794,#719dcc)}
+.risk{background:linear-gradient(90deg,#9a5d44,#dc8a65)}
+.distribution{height:210px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end}
+.distributionColumn{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:7px;text-align:center}
+.distributionValue{font-size:11px;font-weight:700;color:#dce7f2}
+.distributionTrack{height:100%;display:flex;align-items:flex-end;justify-content:center;border-radius:9px;background:#091523;overflow:hidden}
+.distributionTrack span{display:block;width:60%;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,var(--dv-cyan),#2f7786)}
+.distributionColumn small{color:var(--dv-subtle);font-size:9px}
+.trend{display:grid;gap:14px}
+.legend{display:flex;gap:16px;justify-content:flex-end;color:var(--dv-muted);font-size:9px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:8px;height:8px;border-radius:999px}
+.createdDot{background:var(--dv-cyan)}
+.completedDot{background:#6f91c2}
+.trendGrid{height:210px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:end}
+.trendMonth{height:100%;display:grid;grid-template-rows:1fr auto;gap:7px;text-align:center}
+.trendBars{height:100%;display:flex;align-items:flex-end;justify-content:center;gap:5px;border-bottom:1px solid #25364d}
+.trendBars span{display:block;width:26%;min-width:7px;border-radius:5px 5px 0 0}
+.createdBar{background:linear-gradient(180deg,#5ad0c5,#2f8589)}
+.completedBar{background:linear-gradient(180deg,#86a7d3,#4d6f9c)}
+.trendMonth small{color:var(--dv-subtle);font-size:9px}

@@ -1,15 +1,17 @@
-# QA — Sprint 5.1.1a
+# QA — Sprint 5.1.1b
 
-- [ ] Dashboard loads using the existing `/dashboard` API.
-- [ ] Executive briefing uses live metrics.
-- [ ] Six KPI cards display correctly.
-- [ ] Refresh button reloads dashboard data.
-- [ ] Loading skeleton appears during initial load.
-- [ ] API errors appear without breaking the shell.
-- [ ] Recent activity renders audit events.
-- [ ] Empty activity state renders correctly.
-- [ ] Executive action links navigate correctly.
-- [ ] Dashboard works with expanded and collapsed sidebar.
-- [ ] Mobile and tablet layouts remain usable.
-- [ ] Frontend Docker build passes.
+- [ ] `/api/v1/dashboard` returns summary, briefing, charts, alerts, insights, and activity.
+- [ ] Dashboard data is isolated by tenant.
+- [ ] Cache returns results for 30 seconds.
+- [ ] `?refresh=true` bypasses the cache.
+- [ ] Open, approval, high-risk, overdue, readiness, and governance KPIs are correct.
+- [ ] Six-month decision trend renders.
+- [ ] Risk, readiness, status, and business-unit charts render.
+- [ ] Deterministic briefing matches current data.
+- [ ] Alerts link to the correct page.
+- [ ] Dashboard auto-refreshes every 60 seconds.
+- [ ] Manual refresh forces current data.
+- [ ] Empty datasets render without errors.
+- [ ] Backend tests pass.
+- [ ] Frontend build passes.
 - [ ] No database reset is required.

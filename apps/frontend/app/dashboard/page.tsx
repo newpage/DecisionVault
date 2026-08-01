@@ -6,37 +6,75 @@ import {
   AlertTriangle,
   BookOpen,
   Boxes,
+  BrainCircuit,
+  Building2,
+  Clock3,
   FileCheck2,
-  FolderKanban,
   RefreshCw,
   Scale,
+  ShieldCheck,
 } from "lucide-react";
 import Shell from "@/components/Shell";
 import {api} from "@/lib/api";
 import ActivityFeed, {
   DashboardActivity,
 } from "@/components/dashboard/ActivityFeed";
+import {
+  ChartDatum,
+  DistributionBars,
+  HorizontalBars,
+  TrendChart,
+  TrendDatum,
+} from "@/components/dashboard/AnalyticsCharts";
 import DashboardWidget from "@/components/dashboard/DashboardWidget";
-import DecisionHealth from "@/components/dashboard/DecisionHealth";
-import ExecutiveBriefing from "@/components/dashboard/ExecutiveBriefing";
 import ExecutiveMetric from "@/components/dashboard/ExecutiveMetric";
 import styles from "./Dashboard.module.css";
 
-type DashboardResponse = {
-  metrics: {
-    workspaces?: number;
-    knowledge_cards?: number;
-    published?: number;
-    pending_review?: number;
-    sources?: number;
-    decisions?: number;
-  };
-  activity: DashboardActivity[];
+type Insight = {
+  tone: "positive" | "attention" | "neutral";
+  title: string;
+  description: string;
 };
 
-const EMPTY_DASHBOARD: DashboardResponse = {
-  metrics: {},
-  activity: [],
+type Alert = {
+  severity: "critical" | "high" | "medium";
+  title: string;
+  description: string;
+  href: string;
+};
+
+type DashboardResponse = {
+  summary: {
+    open_decisions: number;
+    pending_approval: number;
+    high_risk: number;
+    overdue: number;
+    average_readiness: number;
+    knowledge_cards: number;
+    business_concepts: number;
+    evidence_sources: number;
+    workspaces: number;
+    governance_score: number;
+    ai_confidence: number;
+    published_knowledge: number;
+  };
+  briefing: {
+    title: string;
+    summary: string;
+    generated_at: string;
+    method: string;
+  };
+  charts: {
+    decision_status: ChartDatum[];
+    risk_distribution: ChartDatum[];
+    readiness_distribution: ChartDatum[];
+    decision_trend: TrendDatum[];
+    business_units: ChartDatum[];
+  };
+  alerts: Alert[];
+  insights: Insight[];
+  activity: DashboardActivity[];
+  cache_ttl_seconds: number;
 };
 
 function greeting() {
@@ -47,25 +85,28 @@ function greeting() {
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardResponse>(EMPTY_DASHBOARD);
+  const [data, setData] = useState<DashboardResponse>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date>();
 
-  async function load(isRefresh = false) {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    setError("");
+  async function load(force = false) {
+    if (force) setRefreshing(true);
+    else if (!data) setLoading(true);
 
     try {
-      const response = await api<DashboardResponse>("/dashboard");
+      setError("");
+      const response = await api<DashboardResponse>(
+        `/dashboard${force ? "?refresh=true" : ""}`,
+      );
       setData(response);
+      setLastUpdated(new Date());
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to load the executive dashboard.",
+          : "Unable to load executive intelligence.",
       );
     } finally {
       setLoading(false);
@@ -75,66 +116,47 @@ export default function Dashboard() {
 
   useEffect(() => {
     void load();
+
+    const interval = window.setInterval(() => {
+      void load(false);
+    }, 60_000);
+
+    return () => window.clearInterval(interval);
   }, []);
 
-  const metrics = data.metrics ?? {};
-  const decisions = metrics.decisions ?? 0;
-  const knowledgeCards = metrics.knowledge_cards ?? 0;
-  const published = metrics.published ?? 0;
-  const pendingReview = metrics.pending_review ?? 0;
-  const workspaces = metrics.workspaces ?? 0;
-  const sources = metrics.sources ?? 0;
-
-  const publicationRate = useMemo(
+  const summary = data?.summary;
+  const highAndCritical = useMemo(
     () =>
-      knowledgeCards > 0
-        ? Math.round((published / knowledgeCards) * 100)
-        : 0,
-    [knowledgeCards, published],
+      data?.charts.risk_distribution
+        .filter((item) => ["high", "critical"].includes(item.label))
+        .reduce((sum, item) => sum + item.value, 0) ?? 0,
+    [data],
   );
-
-  const statusRows = [
-    {
-      label: "Published knowledge",
-      value: published,
-      total: Math.max(knowledgeCards, published, 1),
-      tone: "good",
-    },
-    {
-      label: "Pending review",
-      value: pendingReview,
-      total: Math.max(knowledgeCards, pendingReview, 1),
-      tone: "watch",
-    },
-    {
-      label: "Evidence sources",
-      value: sources,
-      total: Math.max(sources, knowledgeCards, 1),
-      tone: "neutral",
-    },
-  ];
 
   return (
     <Shell>
       <header className={styles.pageHeader}>
         <div>
-          <div className={styles.eyebrow}>Enterprise overview</div>
+          <div className={styles.eyebrow}>Executive command center</div>
           <h1>Decision Intelligence</h1>
           <p>
-            {greeting()}. Review organizational decisions, governed knowledge,
-            evidence, and readiness from one executive workspace.
+            {greeting()}. Monitor decision readiness, enterprise risk,
+            governed evidence, and operational attention from one view.
           </p>
         </div>
 
         <div className={styles.headerActions}>
-          <span>
-            {new Date().toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
+          <div className={styles.updateStatus}>
+            <span>
+              {lastUpdated
+                ? `Updated ${lastUpdated.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}`
+                : "Loading intelligence"}
+            </span>
+            <small>Auto-refresh every 60 seconds</small>
+          </div>
           <button
             className={styles.refreshButton}
             onClick={() => void load(true)}
@@ -151,156 +173,233 @@ export default function Dashboard() {
 
       {error ? <div className={styles.error}>{error}</div> : null}
 
-      {loading ? (
+      {loading || !data || !summary ? (
         <div className={styles.loadingGrid}>
-          {Array.from({length: 6}).map((_, index) => (
+          {Array.from({length: 8}).map((_, index) => (
             <div className={styles.loadingCard} key={index} />
           ))}
         </div>
       ) : (
         <>
-          <ExecutiveBriefing
-            openDecisions={decisions}
-            pendingReview={pendingReview}
-            publishedKnowledge={published}
-            totalKnowledge={knowledgeCards}
-          />
+          <section className={styles.briefing}>
+            <div className={styles.briefingIcon}>
+              <BrainCircuit size={20} strokeWidth={1.8} />
+            </div>
+            <div>
+              <div className={styles.eyebrow}>{data.briefing.title}</div>
+              <h2>{data.briefing.summary}</h2>
+              <p>
+                Deterministic briefing generated from governed dashboard data.
+                No generative model is required.
+              </p>
+            </div>
+            <Link href="/decisions">Open Decision Center</Link>
+          </section>
 
           <section className={styles.metricGrid}>
             <ExecutiveMetric
               label="Open decisions"
-              value={decisions}
-              detail="Tracked decision records"
+              value={summary.open_decisions}
+              detail={`${summary.pending_approval} awaiting approval`}
               icon={Scale}
-              tone={decisions > 0 ? "warning" : "neutral"}
+              tone={summary.open_decisions ? "warning" : "neutral"}
             />
             <ExecutiveMetric
-              label="Pending review"
-              value={pendingReview}
-              detail="Knowledge awaiting approval"
+              label="High risk"
+              value={summary.high_risk}
+              detail={`${summary.overdue} overdue review${summary.overdue === 1 ? "" : "s"}`}
               icon={AlertTriangle}
-              tone={pendingReview > 0 ? "critical" : "positive"}
+              tone={summary.high_risk ? "critical" : "positive"}
+            />
+            <ExecutiveMetric
+              label="Average readiness"
+              value={`${summary.average_readiness}%`}
+              detail="Across open decisions"
+              icon={FileCheck2}
+              tone={summary.average_readiness >= 80 ? "positive" : "warning"}
+            />
+            <ExecutiveMetric
+              label="Governance score"
+              value={`${summary.governance_score}%`}
+              detail="Approved, trusted, AI-eligible"
+              icon={ShieldCheck}
+              tone={summary.governance_score >= 80 ? "positive" : "warning"}
             />
             <ExecutiveMetric
               label="Knowledge cards"
-              value={knowledgeCards}
-              detail={`${published} published`}
+              value={summary.knowledge_cards}
+              detail={`${summary.published_knowledge} approved`}
               icon={BookOpen}
               tone="positive"
             />
             <ExecutiveMetric
-              label="Publication rate"
-              value={`${publicationRate}%`}
-              detail="Approved knowledge coverage"
-              icon={FileCheck2}
-              tone={publicationRate >= 80 ? "positive" : "warning"}
+              label="AI confidence"
+              value={`${summary.ai_confidence}%`}
+              detail="Recorded decision confidence"
+              icon={BrainCircuit}
+              tone={summary.ai_confidence >= 80 ? "positive" : "neutral"}
             />
             <ExecutiveMetric
-              label="Evidence sources"
-              value={sources}
-              detail="Connected source documents"
-              icon={Boxes}
+              label="Business concepts"
+              value={summary.business_concepts}
+              detail="Active governed concepts"
+              icon={Building2}
               tone="neutral"
             />
             <ExecutiveMetric
-              label="Workspaces"
-              value={workspaces}
-              detail="Governed operating areas"
-              icon={FolderKanban}
+              label="Evidence sources"
+              value={summary.evidence_sources}
+              detail={`${summary.workspaces} governed workspaces`}
+              icon={Boxes}
               tone="neutral"
             />
           </section>
 
-          <section className={styles.dashboardGrid}>
+          <section className={styles.chartGrid}>
             <DashboardWidget
-              title="Decision and knowledge health"
-              eyebrow="Operating picture"
-              className={styles.healthWidget}
+              eyebrow="Six-month movement"
+              title="Decision trend"
+              className={styles.wideWidget}
             >
-              <DecisionHealth
-                decisions={decisions}
-                workspaces={workspaces}
-                sources={sources}
-                knowledgeCards={knowledgeCards}
+              <TrendChart data={data.charts.decision_trend} />
+            </DashboardWidget>
+
+            <DashboardWidget
+              eyebrow="Active portfolio"
+              title="Risk distribution"
+            >
+              <HorizontalBars
+                data={data.charts.risk_distribution}
+                tone="risk"
               />
             </DashboardWidget>
 
             <DashboardWidget
-              title="Governance posture"
-              eyebrow="Content lifecycle"
-              className={styles.governanceWidget}
+              eyebrow="Evidence maturity"
+              title="Readiness distribution"
             >
-              <div className={styles.statusList}>
-                {statusRows.map((row) => {
-                  const width = Math.max(
-                    row.value > 0 ? 8 : 0,
-                    Math.min(100, Math.round((row.value / row.total) * 100)),
-                  );
+              <DistributionBars data={data.charts.readiness_distribution} />
+            </DashboardWidget>
 
-                  return (
-                    <div className={styles.statusRow} key={row.label}>
-                      <div>
-                        <span>{row.label}</span>
-                        <strong>{row.value}</strong>
-                      </div>
-                      <div className={styles.statusTrack}>
-                        <span
-                          className={styles[row.tone]}
-                          style={{width: `${width}%`}}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+            <DashboardWidget
+              eyebrow="Workflow state"
+              title="Decision status"
+            >
+              <HorizontalBars data={data.charts.decision_status} />
+            </DashboardWidget>
+
+            <DashboardWidget
+              eyebrow="Operating ownership"
+              title="Business units"
+            >
+              {data.charts.business_units.length ? (
+                <HorizontalBars
+                  data={data.charts.business_units}
+                  tone="blue"
+                />
+              ) : (
+                <div className={styles.emptyState}>
+                  Business-unit analytics will appear as decisions are created.
+                </div>
+              )}
+            </DashboardWidget>
+          </section>
+
+          <section className={styles.intelligenceGrid}>
+            <DashboardWidget
+              eyebrow="Business interpretation"
+              title="Executive insights"
+            >
+              <div className={styles.insightList}>
+                {data.insights.map((insight) => (
+                  <article
+                    className={`${styles.insight} ${styles[insight.tone]}`}
+                    key={insight.title}
+                  >
+                    <strong>{insight.title}</strong>
+                    <p>{insight.description}</p>
+                  </article>
+                ))}
               </div>
             </DashboardWidget>
 
             <DashboardWidget
-              title="Recent activity"
+              eyebrow="Action required"
+              title="Executive alerts"
+            >
+              {data.alerts.length ? (
+                <div className={styles.alertList}>
+                  {data.alerts.map((alert) => (
+                    <Link
+                      className={`${styles.alert} ${styles[alert.severity]}`}
+                      href={alert.href}
+                      key={`${alert.severity}-${alert.title}`}
+                    >
+                      <AlertTriangle size={16} />
+                      <span>
+                        <strong>{alert.title}</strong>
+                        <small>{alert.description}</small>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.clearState}>
+                  <ShieldCheck size={21} />
+                  <strong>No executive alerts</strong>
+                  <span>
+                    There are no overdue, high-risk, or governance exceptions.
+                  </span>
+                </div>
+              )}
+            </DashboardWidget>
+
+            <DashboardWidget
               eyebrow="Audit stream"
+              title="Recent activity"
+              className={styles.activityWidget}
               action={
                 <Link href="/governance" className={styles.widgetLink}>
                   View governance
                 </Link>
               }
-              className={styles.activityWidget}
             >
-              <ActivityFeed activity={data.activity ?? []} />
+              <ActivityFeed activity={data.activity} />
             </DashboardWidget>
 
             <DashboardWidget
-              title="Executive actions"
-              eyebrow="Next steps"
-              className={styles.actionsWidget}
+              eyebrow="Portfolio summary"
+              title="Operating indicators"
             >
-              <div className={styles.actionList}>
-                <Link href="/decisions">
+              <div className={styles.operatingList}>
+                <div>
                   <Scale size={17} />
                   <span>
-                    <strong>Review decision portfolio</strong>
-                    <small>
-                      Open supplier and enterprise decision records.
-                    </small>
+                    <strong>{summary.open_decisions}</strong>
+                    <small>Open decisions</small>
                   </span>
-                </Link>
-                <Link href="/governance">
+                </div>
+                <div>
+                  <Clock3 size={17} />
+                  <span>
+                    <strong>{summary.overdue}</strong>
+                    <small>Overdue reviews</small>
+                  </span>
+                </div>
+                <div>
+                  <AlertTriangle size={17} />
+                  <span>
+                    <strong>{highAndCritical}</strong>
+                    <small>High or critical risk</small>
+                  </span>
+                </div>
+                <div>
                   <FileCheck2 size={17} />
                   <span>
-                    <strong>Resolve review queue</strong>
-                    <small>
-                      Approve or return governed knowledge items.
-                    </small>
+                    <strong>{summary.pending_approval}</strong>
+                    <small>Approval-stage decisions</small>
                   </span>
-                </Link>
-                <Link href="/sources">
-                  <Boxes size={17} />
-                  <span>
-                    <strong>Add trusted evidence</strong>
-                    <small>
-                      Connect source documentation to DecisionVault.
-                    </small>
-                  </span>
-                </Link>
+                </div>
               </div>
             </DashboardWidget>
           </section>
