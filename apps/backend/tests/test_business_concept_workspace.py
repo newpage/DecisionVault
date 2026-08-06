@@ -34,6 +34,7 @@ class FakeRepository:
                 lifecycle_status="published",
                 approval_status="approved",
                 trust_score=0.94,
+                ai_usage_allowed=True,
                 created_at=datetime.now(timezone.utc),
             )
         ]
@@ -52,9 +53,15 @@ def test_workspace_calculates_readiness_and_health():
     )
 
     metrics = {metric.key: metric.value for metric in workspace.metrics}
+    factors = {
+        factor.key: factor for factor in workspace.score_explanation.factors
+    }
     assert metrics["knowledge"] == 1
     assert metrics["readiness"] == 100
     assert metrics["health"] == 100
+    assert factors["ai_eligibility"].achieved == 10
+    assert factors["ai_eligibility"].possible == 10
+    assert workspace.knowledge[0].ai_usage_allowed is True
 
 
 def test_workspace_rejects_missing_concept():
