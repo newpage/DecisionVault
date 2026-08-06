@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
     AuditEvent,
+    AccessPolicy,
+    AccessPolicyRole,
     BusinessConcept,
     DecisionCase,
     DecisionEvidence,
@@ -80,6 +82,22 @@ class DecisionRepository:
             select(BusinessConcept).where(
                 BusinessConcept.tenant_id == tenant_id,
                 BusinessConcept.slug == "supplier-qualification",
+            )
+        )
+
+    def get_authorized_access_policy(
+        self, *, tenant_id: str, policy_id: str, role_ids: set[str]
+    ) -> AccessPolicy | None:
+        return self._db.scalar(
+            select(AccessPolicy).where(
+                AccessPolicy.tenant_id == tenant_id,
+                AccessPolicy.id == policy_id,
+                exists(
+                    select(AccessPolicyRole.policy_id).where(
+                        AccessPolicyRole.policy_id == AccessPolicy.id,
+                        AccessPolicyRole.role_id.in_(role_ids),
+                    )
+                ),
             )
         )
 

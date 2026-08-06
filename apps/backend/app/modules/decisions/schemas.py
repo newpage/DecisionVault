@@ -25,6 +25,8 @@ class DecisionCreate(BaseModel):
         "disqualification",
     ] = "initial_qualification"
     business_unit: str = Field(default="Electronics Supply Chain", max_length=180)
+    classification_rank: int = Field(default=20, ge=0)
+    access_policy_id: str | None = None
 
 
 class DecisionResponse(BaseModel):
@@ -33,6 +35,8 @@ class DecisionResponse(BaseModel):
     id: str
     workspace_id: str
     business_concept_id: str | None
+    classification_rank: int = 20
+    access_policy_id: str | None = None
     title: str
     question: str
     status: str

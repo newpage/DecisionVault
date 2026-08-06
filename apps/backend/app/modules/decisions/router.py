@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.deps import Principal, get_db, get_principal
@@ -11,6 +14,12 @@ from app.modules.decisions.outcome_repository import DecisionOutcomeRepository
 from app.modules.decisions.outcome_service import (
     DecisionOutcomeService,
     OutcomeStateError,
+)
+from app.modules.decisions.memory_repository import DecisionMemoryRepository
+from app.modules.decisions.memory_service import DecisionMemoryService
+from app.modules.decisions.memory_schemas import (
+    DecisionComparisonResponse,
+    PrecedentListResponse,
 )
 from app.modules.decisions.schemas import (
     ApprovalConditionResponse,
@@ -78,6 +87,10 @@ def get_outcome_service(db: Session = Depends(get_db)) -> DecisionOutcomeService
     return DecisionOutcomeService(DecisionOutcomeRepository(db), DecisionRepository(db))
 
 
+def get_memory_service(db: Session = Depends(get_db)) -> DecisionMemoryService:
+    return DecisionMemoryService(DecisionMemoryRepository(db))
+
+
 def map_failure(exc: Exception) -> HTTPException:
     if isinstance(exc, DecisionNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -96,6 +109,72 @@ def map_failure(exc: Exception) -> HTTPException:
     if isinstance(exc, OutcomeStateError):
         return HTTPException(status_code=409, detail=str(exc))
     raise exc
+
+
+@router.get(
+    "/decisions/{decision_id}/precedents", response_model=PrecedentListResponse
+)
+def list_decision_precedents(
+    decision_id: str,
+    minimum_relevance: Literal[
+        "strongly_relevant", "relevant", "somewhat_relevant", "weakly_relevant"
+    ] = "weakly_relevant",
+    limit: int = Query(default=10, ge=1, le=50),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    outcome_classification: Literal[
+        "exceeded",
+        "met",
+        "partially_met",
+        "did_not_meet",
+        "inconclusive",
+        "too_early",
+        "cancelled",
+    ]
+    | None = None,
+    business_concept_id: str | None = None,
+    principal: Principal = Depends(get_principal),
+    service: DecisionMemoryService = Depends(get_memory_service),
+):
+    try:
+        return service.list_precedents(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            minimum_relevance=minimum_relevance,
+            limit=limit,
+            date_from=date_from,
+            date_to=date_to,
+            outcome_classification=outcome_classification,
+            business_concept_id=business_concept_id,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get(
+    "/decisions/{decision_id}/precedents/{historical_decision_id}",
+    response_model=DecisionComparisonResponse,
+)
+def compare_decision_precedent(
+    decision_id: str,
+    historical_decision_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionMemoryService = Depends(get_memory_service),
+):
+    try:
+        return service.compare(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            historical_decision_id=historical_decision_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
 
 
 @router.get(

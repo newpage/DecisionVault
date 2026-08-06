@@ -13,6 +13,29 @@ retains bounded Decision-specific learning. All relationships use tenant-aware
 repository predicates and composite tenant foreign keys. No generic metrics,
 time-series, project-management, or external analytics subsystem is introduced.
 
+## Decision Memory
+
+Decision Memory is a derived, authorization-sensitive read model inside the
+Decision Intelligence module. Candidate retrieval applies tenant and governed
+historical-state predicates before ranking. Immutable evidence profiles are
+queried with the principal's clearance and access-policy roles; review and
+outcome factors are loaded only with their respective permissions. Restricted
+components are unavailable rather than treated as a mismatch, and their weights
+are removed before normalization.
+
+`decision_similarity_v1` is lexical and structured. It does not persist
+pairwise similarity rows or Decision embeddings. Existing Knowledge-chunk
+pgvector retrieval remains unchanged; raw evidence content is never embedded or
+sent to Ollama for historical comparison. This deterministic foundation avoids
+a second sensitive index while preserving a future bounded vector retrieval
+path if scale demonstrates a need.
+
+Decision Cases now carry explicit `classification_rank` and optional
+tenant-composite `access_policy_id`. Decision Memory applies these predicates
+inside current, candidate, and pairwise queries so restricted Decisions never
+enter ranking. This clean-schema change requires a pre-release database reset;
+no migration is provided.
+
 ## System context
 
 DecisionVault is a multi-tenant decision-intelligence application. Existing source repositories remain authoritative; uploaded source material is extracted into draft Knowledge Cards, reviewed as governed knowledge, retrieved for grounded answers, and retained as evidence for Decision Cases.

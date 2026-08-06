@@ -25,6 +25,7 @@ OUTCOME_RECORD_PERMISSION = "decision.outcome.record"
 OUTCOME_VERIFY_PERMISSION = "decision.outcome.verify"
 OUTCOME_ASSESS_PERMISSION = "decision.outcome.assess"
 LESSON_RECORD_PERMISSION = "decision.lesson.record"
+MEMORY_VIEW_PERMISSION = "decision.memory.view"
 
 
 @dataclass(frozen=True)
@@ -117,3 +118,7 @@ def authorize_outcome(permissions: set[str], action: str) -> None:
         "lesson": LESSON_RECORD_PERMISSION,
     }[action]
     require_permission(permissions, permission)
+
+
+def authorize_memory_view(permissions: set[str]) -> None:
+    require_permission(permissions, MEMORY_VIEW_PERMISSION)

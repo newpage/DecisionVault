@@ -58,6 +58,31 @@ to the Decision and are not promoted into Knowledge Cards.
 The new outcome tables and permissions require a clean pre-release database
 recreation under ADR-0001; there is no migration or compatibility adapter.
 
+## Decision Memory
+
+The Decision Memory tab discovers tenant-authorized historical Decisions in
+`conditionally_approved`, `approved`, `rejected`, or `closed` state. It shows
+similarity separately from approval and effectiveness so failed or rejected
+precedents remain visible when structurally relevant. Filters support minimum
+relevance and historical effectiveness, and pairwise comparison exposes shared
+characteristics, differences, governed outcome facts, and lessons.
+
+The `decision_similarity_v1` score is the normalized weighted sum of available
+components: Business Concept 20%, structured context 10%, lexical title/question
+overlap 20%, authorized evidence profile 20%, authorized governance pattern 10%,
+authorized outcome profile 10%, authorized lesson-type overlap 5%, and recency
+5%. Jaccard overlap is used for set and term factors. Recency declines linearly
+to zero at five years. Thresholds are strongly relevant at 80, relevant at 60,
+somewhat relevant at 40, and weakly relevant below 40.
+
+When evidence, review, or outcome permission is absent, the component is not
+queried or scored and remaining weights are renormalized. Evidence profiles use
+immutable DecisionEvidence metadata and enforce snapshot classification and
+access-policy roles in the query. V1 uses no Decision embeddings or AI summary.
+Decision-level classification and access policy are also checked before a
+historical row can enter candidate retrieval. These new Decision columns require
+a clean pre-release database recreation under ADR-0001.
+
 ## Engineering checklist for changes
 
 - Preserve tenant predicates on the decision, business concept, knowledge, evidence, and audit queries.

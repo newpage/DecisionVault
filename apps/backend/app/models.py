@@ -132,6 +132,7 @@ class AccessPolicy(Base):
         ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(160))
+    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
 
 
 class AccessPolicyRole(Base):
@@ -329,6 +330,8 @@ class DecisionCase(Base):
         nullable=True,
         index=True,
     )
+    classification_rank: Mapped[int] = mapped_column(Integer, default=20, index=True)
+    access_policy_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(240))
     question: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
@@ -362,7 +365,17 @@ class DecisionCase(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
-    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "access_policy_id"],
+            ["access_policies.tenant_id", "access_policies.id"],
+            name="fk_decision_tenant_access_policy",
+        ),
+        CheckConstraint(
+            "classification_rank >= 0", name="ck_decision_classification_rank"
+        ),
+    )
 
 
 class DecisionEvidence(Base):

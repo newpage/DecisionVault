@@ -116,3 +116,31 @@ state, deterministic weighted aggregation, open approval conditions, assessments
 and lessons. Missing data is inconclusive; failed critical outcomes override
 weighted success. These tables are a breaking clean-schema change and require a
 pre-release database reset; no migration is supplied.
+
+### Decision Memory and historical comparison
+
+```text
+GET /decisions/{decision_id}/precedents
+GET /decisions/{decision_id}/precedents/{historical_decision_id}
+```
+
+Both routes require `decision.view` and `decision.memory.view`. The list accepts
+`minimum_relevance`, `limit` (maximum 50), `date_from`, `date_to`,
+`outcome_classification`, and `business_concept_id`. The detail route performs
+an explicit pairwise comparison and returns current and historical summaries,
+component scores and explanations, shared and different characteristics, and
+permission-authorized governance, outcome, and lesson facts. Foreign or
+inaccessible identifiers return non-disclosing 404 responses.
+
+Candidates are tenant- and state-filtered before ranking. Evidence facts require
+`decision.evidence.view` and pass snapshot clearance/access-policy predicates;
+governance facts require `decision.review.view`; outcome and lesson facts require
+`decision.outcome.view`. Unavailable components are omitted and weights are
+renormalized. Responses identify `decision_similarity_v1`; no result is labeled
+an AI score or recommendation.
+
+Decision creation accepts `classification_rank` (default 20) and optional
+`access_policy_id`. The caller cannot create above their clearance or under a
+foreign/inaccessible policy. Adding these Decision-level access fields is a
+breaking clean-schema change and requires a pre-release database reset; no
+migration or compatibility adapter is supplied.

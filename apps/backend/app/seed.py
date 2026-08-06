@@ -71,6 +71,7 @@ def seed(db: Session):
             "decision.outcome.verify",
             "decision.outcome.assess",
             "decision.lesson.record",
+            "decision.memory.view",
             "admin.manage",
         ]
     ]

@@ -193,6 +193,24 @@ type EffectivenessWorkspace = {
   conditions: ApprovalCondition[]; capabilities: Record<string, boolean>;
 };
 
+type SimilarityComponent = {score: number; weighted_points: number; available: boolean; explanation: string};
+type HistoricalDecision = {
+  id: string; title: string; created_at: string; business_concept_name: string | null;
+  final_status: string; approval_result: string | null; effectiveness_classification: string | null;
+  evidence_count: number | null; evidence_types: string[] | null;
+  material_conditions: string[] | null; material_findings: string[] | null; lessons: string[] | null;
+};
+type PrecedentResult = {
+  historical_decision: HistoricalDecision; overall_similarity: number; relevance: string;
+  algorithm_version: string; similarity_components: Record<string, SimilarityComponent>;
+  shared_characteristics: string[]; different_characteristics: string[];
+};
+type PrecedentWorkspace = {algorithm_version: string; items: PrecedentResult[]; considered_count: number; returned_count: number};
+type DecisionComparison = PrecedentResult & {
+  current_decision: Record<string, string | null>; historical_governance: Record<string, unknown> | null;
+  historical_outcome: Record<string, unknown> | null; historical_lessons: {type: string; description: string; business_impact: string}[] | null;
+};
+
 const tabs = [
   "Overview",
   "Evidence",
@@ -200,6 +218,7 @@ const tabs = [
   "AI Analysis",
   "Approvals",
   "Outcomes",
+  "Decision Memory",
   "Reports",
 ] as const;
 
@@ -220,6 +239,11 @@ export default function DecisionWorkspace() {
   const [observationValues, setObservationValues] = useState<Record<string, string>>({});
   const [assessmentRationale, setAssessmentRationale] = useState("");
   const [lessonText, setLessonText] = useState("");
+  const [precedents, setPrecedents] = useState<PrecedentWorkspace>();
+  const [memoryRelevance, setMemoryRelevance] = useState("weakly_relevant");
+  const [memoryOutcome, setMemoryOutcome] = useState("");
+  const [comparison, setComparison] = useState<DecisionComparison>();
+  const [memoryBusy, setMemoryBusy] = useState(false);
   const [reviewerCandidates, setReviewerCandidates] = useState<ReviewerCandidate[]>([]);
   const [selectedMembershipId, setSelectedMembershipId] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
@@ -274,6 +298,11 @@ export default function DecisionWorkspace() {
       } catch {
         setEffectiveness(undefined);
       }
+      try {
+        setPrecedents(await api<PrecedentWorkspace>(`/decisions/${params.id}/precedents?minimum_relevance=${memoryRelevance}${memoryOutcome ? `&outcome_classification=${memoryOutcome}` : ""}`));
+      } catch {
+        setPrecedents(undefined);
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -282,6 +311,31 @@ export default function DecisionWorkspace() {
       );
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function loadPrecedents() {
+    setMemoryBusy(true);
+    try {
+      setError("");
+      setPrecedents(await api<PrecedentWorkspace>(`/decisions/${params.id}/precedents?minimum_relevance=${memoryRelevance}${memoryOutcome ? `&outcome_classification=${memoryOutcome}` : ""}`));
+      setComparison(undefined);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to load Decision Memory.");
+    } finally {
+      setMemoryBusy(false);
+    }
+  }
+
+  async function comparePrecedent(historicalDecisionId: string) {
+    setMemoryBusy(true);
+    try {
+      setError("");
+      setComparison(await api<DecisionComparison>(`/decisions/${params.id}/precedents/${historicalDecisionId}`));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to compare historical Decisions.");
+    } finally {
+      setMemoryBusy(false);
     }
   }
 
@@ -892,6 +946,68 @@ export default function DecisionWorkspace() {
             </div>
           )}
         </DashboardWidget>
+      ) : null}
+
+      {activeTab === "Decision Memory" ? (
+        <section className={styles.approvalWorkspace} aria-label="Decision Memory and historical comparison">
+          <div className={styles.actionRow}>
+            <label className={styles.controlGroup}>Minimum relevance
+              <select value={memoryRelevance} onChange={(event) => setMemoryRelevance(event.target.value)}>
+                <option value="weakly_relevant">All relevance levels</option>
+                <option value="somewhat_relevant">Somewhat relevant or stronger</option>
+                <option value="relevant">Relevant or stronger</option>
+                <option value="strongly_relevant">Strongly relevant only</option>
+              </select>
+            </label>
+            <label className={styles.controlGroup}>Historical outcome
+              <select value={memoryOutcome} onChange={(event) => setMemoryOutcome(event.target.value)}>
+                <option value="">Any outcome, including missing</option>
+                <option value="met">Met expectations</option>
+                <option value="partially_met">Partially met</option>
+                <option value="did_not_meet">Did not meet</option>
+                <option value="inconclusive">Inconclusive</option>
+              </select>
+            </label>
+            <button className={styles.primaryAction} disabled={memoryBusy} onClick={() => void loadPrecedents()}>Apply filters</button>
+          </div>
+          {!precedents ? <div className={styles.emptyPanel}>Decision Memory is unavailable for your current permissions.</div> : precedents.items.length === 0 ? <div className={styles.emptyPanel}><strong>No historical precedents match these filters.</strong><p>Broaden the relevance or outcome filter. Inaccessible Decisions are never counted or displayed.</p></div> : (
+            <div className={styles.workspaceGrid}>
+              <div className={styles.mainColumn}>
+                <DashboardWidget eyebrow="Governed historical context" title={`Relevant historical Decisions (${precedents.returned_count})`}>
+                  <p className={styles.helperText}>Similarity is structural, not a recommendation. Successful, failed, and rejected Decisions are ranked by the same formula.</p>
+                  <div className={styles.reviewList}>
+                    {precedents.items.map((precedent) => <article className={styles.reviewCard} key={precedent.historical_decision.id}>
+                      <div className={styles.reviewHeader}><strong>{precedent.historical_decision.title}</strong><span>{precedent.overall_similarity}% · {precedent.relevance.replaceAll("_", " ")}</span></div>
+                      <p className={styles.helperText}>{precedent.historical_decision.business_concept_name || "No Business Concept"} · {new Date(precedent.historical_decision.created_at).toLocaleDateString()} · {precedent.historical_decision.final_status.replaceAll("_", " ")}</p>
+                      <div className={styles.evidenceBadges}>
+                        <span>Approval: {precedent.historical_decision.approval_result?.replaceAll("_", " ") || "not available"}</span>
+                        <span>Effectiveness: {precedent.historical_decision.effectiveness_classification?.replaceAll("_", " ") || "not assessed or restricted"}</span>
+                      </div>
+                      <div className={styles.findingList}>{Object.entries(precedent.similarity_components).filter(([, component]) => component.available && component.weighted_points > 0).map(([name, component]) => <div className={styles.finding} key={name}><strong>{name.replaceAll("_", " ")} · {Math.round(component.score * 100)}%</strong><p>{component.explanation}</p></div>)}</div>
+                      {precedent.historical_decision.lessons?.slice(0, 2).map((lesson) => <p className={styles.recommendation} key={lesson}>Relevant lesson: {lesson}</p>)}
+                      <button className={styles.primaryAction} disabled={memoryBusy} onClick={() => void comparePrecedent(precedent.historical_decision.id)}>Compare Decisions</button>
+                    </article>)}
+                  </div>
+                </DashboardWidget>
+              </div>
+              <aside className={styles.sideColumn}>
+                <DashboardWidget eyebrow="Explainable comparison" title={comparison ? comparison.historical_decision.title : "Select a precedent"}>
+                  {!comparison ? <p className={styles.helperText}>Choose Compare Decisions to inspect shared characteristics, differences, governance, outcomes, and lessons.</p> : <>
+                    <p className={styles.recommendation}>{comparison.overall_similarity}% similar — {comparison.relevance.replaceAll("_", " ")}</p>
+                    <strong>Shared characteristics</strong>
+                    <ul>{comparison.shared_characteristics.map((item) => <li key={item}>{item}</li>)}</ul>
+                    <strong>Key differences</strong>
+                    <ul>{comparison.different_characteristics.map((item) => <li key={item}>{item}</li>)}</ul>
+                    <strong>Historical result</strong>
+                    <p>{comparison.historical_decision.final_status.replaceAll("_", " ")} · effectiveness {comparison.historical_decision.effectiveness_classification?.replaceAll("_", " ") || "not assessed or restricted"}</p>
+                    {comparison.historical_lessons?.map((lesson) => <div className={styles.finding} key={`${lesson.type}-${lesson.description}`}><strong>{lesson.type} lesson</strong><p>{lesson.description}</p></div>)}
+                    <p className={styles.helperText}>Calculated with {comparison.algorithm_version}. No AI recommendation is generated.</p>
+                  </>}
+                </DashboardWidget>
+              </aside>
+            </div>
+          )}
+        </section>
       ) : null}
 
       {activeTab === "Outcomes" ? (

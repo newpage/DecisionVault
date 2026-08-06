@@ -134,11 +134,25 @@ class DecisionService:
         )
         if concept is None:
             raise DecisionNotFoundError("Business Concept not found")
+        if command.classification_rank > clearance_rank:
+            raise DecisionNotFoundError("Decision access policy not found")
+        if command.access_policy_id and (
+            not role_ids
+            or self._repository.get_authorized_access_policy(
+                tenant_id=tenant_id,
+                policy_id=command.access_policy_id,
+                role_ids=role_ids,
+            )
+            is None
+        ):
+            raise DecisionNotFoundError("Decision access policy not found")
         readiness = calculate_readiness([])
         decision = DecisionCase(
             tenant_id=tenant_id,
             workspace_id=command.workspace_id,
             business_concept_id=concept.id,
+            classification_rank=command.classification_rank,
+            access_policy_id=command.access_policy_id,
             title=command.title,
             question=command.question,
             status="evidence_collection",
