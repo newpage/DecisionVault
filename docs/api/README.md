@@ -144,3 +144,26 @@ Decision creation accepts `classification_rank` (default 20) and optional
 foreign/inaccessible policy. Adding these Decision-level access fields is a
 breaking clean-schema change and requires a pre-release database reset; no
 migration or compatibility adapter is supplied.
+
+### Governed precedent references and lesson choices
+
+```text
+GET    /decisions/{decision_id}/precedent-references
+GET    /decisions/{decision_id}/precedent-references?history=true
+POST   /decisions/{decision_id}/precedent-references
+DELETE /decisions/{decision_id}/precedent-references/{precedent_id}
+GET    /decisions/{decision_id}/lesson-adoptions
+POST   /decisions/{decision_id}/lesson-adoptions
+POST   /decisions/{decision_id}/lesson-adoptions/{adoption_id}/supersede
+```
+
+Viewing requires `decision.precedent.view`; attachment/removal requires
+`decision.precedent.manage` and attachment also requires `decision.memory.view`.
+Lesson choices require `decision.outcome.view` plus `decision.lesson.adopt` or
+`decision.lesson.reject`. Commands revalidate tenant, classification,
+access-policy and governed historical-state visibility and require an active
+Membership. Controlled relationship/status values and rationales are mandatory.
+Business-state conflicts return 409 and inaccessible resources return 404.
+Revision changes, review staleness, and audits commit with the business record.
+Snapshot DTOs do not consult restricted live lesson content. The new tables
+require a clean pre-release database reset; no migration is supplied.

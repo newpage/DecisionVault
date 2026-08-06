@@ -21,6 +21,21 @@ from app.modules.decisions.memory_schemas import (
     DecisionComparisonResponse,
     PrecedentListResponse,
 )
+from app.modules.decisions.precedent_repository import DecisionPrecedentRepository
+from app.modules.decisions.precedent_service import (
+    DecisionPrecedentService,
+    PrecedentStateError,
+)
+from app.modules.decisions.precedent_schemas import (
+    LessonAdoptionCreate,
+    LessonAdoptionMutationResponse,
+    LessonAdoptionResponse,
+    LessonAdoptionSupersede,
+    PrecedentAttach,
+    PrecedentMutationResponse,
+    PrecedentReferenceResponse,
+    PrecedentRemove,
+)
 from app.modules.decisions.schemas import (
     ApprovalConditionResponse,
     ApprovalMutationResponse,
@@ -91,6 +106,12 @@ def get_memory_service(db: Session = Depends(get_db)) -> DecisionMemoryService:
     return DecisionMemoryService(DecisionMemoryRepository(db))
 
 
+def get_precedent_service(db: Session = Depends(get_db)) -> DecisionPrecedentService:
+    return DecisionPrecedentService(
+        DecisionPrecedentRepository(db), DecisionMemoryRepository(db)
+    )
+
+
 def map_failure(exc: Exception) -> HTTPException:
     if isinstance(exc, DecisionNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -108,12 +129,12 @@ def map_failure(exc: Exception) -> HTTPException:
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, OutcomeStateError):
         return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, PrecedentStateError):
+        return HTTPException(status_code=409, detail=str(exc))
     raise exc
 
 
-@router.get(
-    "/decisions/{decision_id}/precedents", response_model=PrecedentListResponse
-)
+@router.get("/decisions/{decision_id}/precedents", response_model=PrecedentListResponse)
 def list_decision_precedents(
     decision_id: str,
     minimum_relevance: Literal[
@@ -174,6 +195,166 @@ def compare_decision_precedent(
             permissions=principal.permissions,
         )
     except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get(
+    "/decisions/{decision_id}/precedent-references",
+    response_model=list[PrecedentReferenceResponse],
+)
+def list_precedent_references(
+    decision_id: str,
+    history: bool = False,
+    principal: Principal = Depends(get_principal),
+    service: DecisionPrecedentService = Depends(get_precedent_service),
+):
+    try:
+        return service.list_precedents(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            history=history,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/precedent-references",
+    response_model=PrecedentMutationResponse,
+    status_code=201,
+)
+def attach_precedent_reference(
+    decision_id: str,
+    body: PrecedentAttach,
+    principal: Principal = Depends(get_principal),
+    service: DecisionPrecedentService = Depends(get_precedent_service),
+):
+    try:
+        return service.attach(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        DecisionConflictError,
+        PrecedentStateError,
+    ) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.delete(
+    "/decisions/{decision_id}/precedent-references/{precedent_id}",
+    response_model=PrecedentMutationResponse,
+)
+def remove_precedent_reference(
+    decision_id: str,
+    precedent_id: str,
+    body: PrecedentRemove,
+    principal: Principal = Depends(get_principal),
+    service: DecisionPrecedentService = Depends(get_precedent_service),
+):
+    try:
+        return service.remove(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            precedent_id=precedent_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            rationale=body.rationale,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, PrecedentStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get(
+    "/decisions/{decision_id}/lesson-adoptions",
+    response_model=list[LessonAdoptionResponse],
+)
+def list_lesson_adoptions(
+    decision_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionPrecedentService = Depends(get_precedent_service),
+):
+    try:
+        return service.list_adoptions(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/lesson-adoptions",
+    response_model=LessonAdoptionMutationResponse,
+    status_code=201,
+)
+def create_lesson_adoption(
+    decision_id: str,
+    body: LessonAdoptionCreate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionPrecedentService = Depends(get_precedent_service),
+):
+    try:
+        return service.adopt_or_reject(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        DecisionConflictError,
+        PrecedentStateError,
+    ) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/lesson-adoptions/{adoption_id}/supersede",
+    response_model=LessonAdoptionMutationResponse,
+)
+def supersede_lesson_adoption(
+    decision_id: str,
+    adoption_id: str,
+    body: LessonAdoptionSupersede,
+    principal: Principal = Depends(get_principal),
+    service: DecisionPrecedentService = Depends(get_precedent_service),
+):
+    try:
+        return service.supersede(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            adoption_id=adoption_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            rationale=body.rationale,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, PrecedentStateError) as exc:
         raise map_failure(exc) from exc
 
 

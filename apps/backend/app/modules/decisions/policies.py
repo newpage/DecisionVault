@@ -26,6 +26,10 @@ OUTCOME_VERIFY_PERMISSION = "decision.outcome.verify"
 OUTCOME_ASSESS_PERMISSION = "decision.outcome.assess"
 LESSON_RECORD_PERMISSION = "decision.lesson.record"
 MEMORY_VIEW_PERMISSION = "decision.memory.view"
+PRECEDENT_VIEW_PERMISSION = "decision.precedent.view"
+PRECEDENT_MANAGE_PERMISSION = "decision.precedent.manage"
+LESSON_ADOPT_PERMISSION = "decision.lesson.adopt"
+LESSON_REJECT_PERMISSION = "decision.lesson.reject"
 
 
 @dataclass(frozen=True)

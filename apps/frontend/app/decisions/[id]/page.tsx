@@ -208,8 +208,10 @@ type PrecedentResult = {
 type PrecedentWorkspace = {algorithm_version: string; items: PrecedentResult[]; considered_count: number; returned_count: number};
 type DecisionComparison = PrecedentResult & {
   current_decision: Record<string, string | null>; historical_governance: Record<string, unknown> | null;
-  historical_outcome: Record<string, unknown> | null; historical_lessons: {type: string; description: string; business_impact: string}[] | null;
+  historical_outcome: Record<string, unknown> | null; historical_lessons: {id: string; type: string; description: string; business_impact: string}[] | null;
 };
+type GovernedPrecedent = {id: string; historical_decision_id: string; relationship_type: string; rationale: string; similarity_score: number; similarity_algorithm_version: string; snapshot_historical_title: string; snapshot_historical_status: string; snapshot_outcome_classification: string | null; referenced_by_membership_id: string; referenced_at: string};
+type LessonAdoption = {id: string; historical_lesson_id: string; status: string; rationale: string; snapshot_lesson_type: string; snapshot_lesson_description: string; acted_by_membership_id: string; acted_at: string};
 
 const tabs = [
   "Overview",
@@ -244,6 +246,11 @@ export default function DecisionWorkspace() {
   const [memoryOutcome, setMemoryOutcome] = useState("");
   const [comparison, setComparison] = useState<DecisionComparison>();
   const [memoryBusy, setMemoryBusy] = useState(false);
+  const [governedPrecedents, setGovernedPrecedents] = useState<GovernedPrecedent[]>([]);
+  const [lessonAdoptions, setLessonAdoptions] = useState<LessonAdoption[]>([]);
+  const [precedentRelationship, setPrecedentRelationship] = useState("analogous");
+  const [precedentRationale, setPrecedentRationale] = useState("");
+  const [lessonRationales, setLessonRationales] = useState<Record<string, string>>({});
   const [reviewerCandidates, setReviewerCandidates] = useState<ReviewerCandidate[]>([]);
   const [selectedMembershipId, setSelectedMembershipId] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
@@ -300,6 +307,8 @@ export default function DecisionWorkspace() {
       }
       try {
         setPrecedents(await api<PrecedentWorkspace>(`/decisions/${params.id}/precedents?minimum_relevance=${memoryRelevance}${memoryOutcome ? `&outcome_classification=${memoryOutcome}` : ""}`));
+        setGovernedPrecedents(await api<GovernedPrecedent[]>(`/decisions/${params.id}/precedent-references`));
+        setLessonAdoptions(await api<LessonAdoption[]>(`/decisions/${params.id}/lesson-adoptions`));
       } catch {
         setPrecedents(undefined);
       }
@@ -337,6 +346,27 @@ export default function DecisionWorkspace() {
     } finally {
       setMemoryBusy(false);
     }
+  }
+
+  async function attachPrecedent() {
+    if (!comparison) return;
+    setMemoryBusy(true);
+    try {
+      await api(`/decisions/${params.id}/precedent-references`, {method: "POST", body: JSON.stringify({historical_decision_id: comparison.historical_decision.id, relationship_type: precedentRelationship, rationale: precedentRationale})});
+      setPrecedentRationale("");
+      await load();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to attach precedent."); }
+    finally { setMemoryBusy(false); }
+  }
+
+  async function chooseLesson(lessonId: string, status: "adopted" | "rejected") {
+    if (!comparison) return;
+    setMemoryBusy(true);
+    try {
+      await api(`/decisions/${params.id}/lesson-adoptions`, {method: "POST", body: JSON.stringify({historical_decision_id: comparison.historical_decision.id, historical_lesson_id: lessonId, status, rationale: lessonRationales[lessonId] || ""})});
+      await load();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to record lesson choice."); }
+    finally { setMemoryBusy(false); }
   }
 
   async function outcomeAction(path: string, body?: object, method = "POST") {
@@ -950,6 +980,12 @@ export default function DecisionWorkspace() {
 
       {activeTab === "Decision Memory" ? (
         <section className={styles.approvalWorkspace} aria-label="Decision Memory and historical comparison">
+          <DashboardWidget eyebrow="Governed Decision inputs" title={`Referenced precedents (${governedPrecedents.length})`}>
+            <p className={styles.helperText}>These records were deliberately relied upon. Their similarity and historical result are frozen at attachment time.</p>
+            {governedPrecedents.length === 0 ? <div className={styles.emptyPanel}>No historical Decision has been attached as a governed precedent.</div> : <div className={styles.reviewList}>{governedPrecedents.map((item) => <article className={styles.reviewCard} key={item.id}><div className={styles.reviewHeader}><strong>{item.snapshot_historical_title}</strong><span>{item.relationship_type.replaceAll("_", " ")} · {item.similarity_score}%</span></div><p>{item.rationale}</p><p className={styles.helperText}>{item.snapshot_historical_status.replaceAll("_", " ")} · attached {new Date(item.referenced_at).toLocaleString()} · {item.similarity_algorithm_version}</p></article>)}</div>}
+            <strong>Historical lesson choices</strong>
+            {lessonAdoptions.length === 0 ? <p className={styles.helperText}>No lessons have been adopted or rejected.</p> : lessonAdoptions.map((item) => <div className={styles.finding} key={item.id}><strong>{item.status} · {item.snapshot_lesson_type}</strong><p>{item.snapshot_lesson_description}</p><p className={styles.helperText}>{item.rationale}</p></div>)}
+          </DashboardWidget>
           <div className={styles.actionRow}>
             <label className={styles.controlGroup}>Minimum relevance
               <select value={memoryRelevance} onChange={(event) => setMemoryRelevance(event.target.value)}>
@@ -1000,7 +1036,12 @@ export default function DecisionWorkspace() {
                     <ul>{comparison.different_characteristics.map((item) => <li key={item}>{item}</li>)}</ul>
                     <strong>Historical result</strong>
                     <p>{comparison.historical_decision.final_status.replaceAll("_", " ")} · effectiveness {comparison.historical_decision.effectiveness_classification?.replaceAll("_", " ") || "not assessed or restricted"}</p>
-                    {comparison.historical_lessons?.map((lesson) => <div className={styles.finding} key={`${lesson.type}-${lesson.description}`}><strong>{lesson.type} lesson</strong><p>{lesson.description}</p></div>)}
+                    <div className={styles.controlGroup}>
+                      <label>Relationship type<select value={precedentRelationship} onChange={(event) => setPrecedentRelationship(event.target.value)}><option value="supporting">Supporting precedent</option><option value="cautionary">Cautionary precedent</option><option value="analogous">Analogous case</option><option value="exception">Exception case</option><option value="contrary">Contrary precedent</option></select></label>
+                      <textarea aria-label="Precedent attachment rationale" placeholder="Why did this historical Decision influence the current reasoning?" value={precedentRationale} onChange={(event) => setPrecedentRationale(event.target.value)} />
+                      <button className={styles.primaryAction} disabled={memoryBusy || precedentRationale.trim().length < 3} onClick={() => void attachPrecedent()}>Attach as precedent</button>
+                    </div>
+                    {comparison.historical_lessons?.map((lesson) => <div className={styles.finding} key={lesson.id}><strong>{lesson.type} lesson</strong><p>{lesson.description}</p><textarea aria-label={`Rationale for ${lesson.description}`} placeholder="Why adopt or reject this lesson?" value={lessonRationales[lesson.id] || ""} onChange={(event) => setLessonRationales((current) => ({...current, [lesson.id]: event.target.value}))} /><div className={styles.actionRow}><button className={styles.primaryAction} disabled={memoryBusy || (lessonRationales[lesson.id] || "").trim().length < 3} onClick={() => void chooseLesson(lesson.id, "adopted")}>Adopt lesson</button><button className={styles.secondaryAction} disabled={memoryBusy || (lessonRationales[lesson.id] || "").trim().length < 3} onClick={() => void chooseLesson(lesson.id, "rejected")}>Reject lesson</button></div></div>)}
                     <p className={styles.helperText}>Calculated with {comparison.algorithm_version}. No AI recommendation is generated.</p>
                   </>}
                 </DashboardWidget>

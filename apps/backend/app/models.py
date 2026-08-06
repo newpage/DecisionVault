@@ -331,7 +331,9 @@ class DecisionCase(Base):
         index=True,
     )
     classification_rank: Mapped[int] = mapped_column(Integer, default=20, index=True)
-    access_policy_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    access_policy_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(240))
     question: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(40), default="draft", index=True)
@@ -1108,6 +1110,174 @@ class DecisionLesson(Base):
             name="ck_lesson_type",
         ),
         CheckConstraint("length(trim(description)) > 0", name="ck_lesson_description"),
+    )
+
+
+class DecisionPrecedentReference(Base):
+    __tablename__ = "decision_precedent_references"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
+    historical_decision_id: Mapped[str] = mapped_column(String(36), index=True)
+    relationship_type: Mapped[str] = mapped_column(String(30), index=True)
+    rationale: Mapped[str] = mapped_column(Text)
+    similarity_algorithm_version: Mapped[str] = mapped_column(String(60))
+    similarity_score: Mapped[float] = mapped_column(Float)
+    similarity_components: Mapped[dict] = mapped_column(JSON)
+    snapshot_business_concept_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    snapshot_business_concept_name: Mapped[str | None] = mapped_column(
+        String(180), nullable=True
+    )
+    snapshot_historical_title: Mapped[str] = mapped_column(String(240))
+    snapshot_historical_status: Mapped[str] = mapped_column(String(40))
+    snapshot_outcome_classification: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
+    snapshot_effectiveness_summary: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+    compared_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    referenced_by_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    referenced_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    removed_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    removed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    removal_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_precedent_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "historical_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            name="fk_precedent_tenant_historical_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "referenced_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_precedent_tenant_referencer",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "removed_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_precedent_tenant_remover",
+        ),
+        CheckConstraint(
+            "decision_case_id != historical_decision_id", name="ck_precedent_not_self"
+        ),
+        CheckConstraint(
+            "relationship_type IN ('supporting','cautionary','analogous','exception','contrary')",
+            name="ck_precedent_relationship_type",
+        ),
+        CheckConstraint("length(trim(rationale)) > 0", name="ck_precedent_rationale"),
+        CheckConstraint(
+            "similarity_score >= 0 AND similarity_score <= 100",
+            name="ck_precedent_similarity_score",
+        ),
+        CheckConstraint(
+            "(removed_at IS NULL AND removed_by_membership_id IS NULL AND removal_rationale IS NULL) OR (removed_at IS NOT NULL AND removed_by_membership_id IS NOT NULL AND length(trim(removal_rationale)) > 0)",
+            name="ck_precedent_removal",
+        ),
+        Index(
+            "uq_active_precedent_relationship",
+            "tenant_id",
+            "decision_case_id",
+            "historical_decision_id",
+            "relationship_type",
+            unique=True,
+            postgresql_where=text("removed_at IS NULL"),
+            sqlite_where=text("removed_at IS NULL"),
+        ),
+    )
+
+
+class DecisionLessonAdoption(Base):
+    __tablename__ = "decision_lesson_adoptions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
+    historical_decision_id: Mapped[str] = mapped_column(String(36), index=True)
+    historical_lesson_id: Mapped[str] = mapped_column(String(36), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    rationale: Mapped[str] = mapped_column(Text)
+    application_note: Mapped[str] = mapped_column(Text, default="")
+    snapshot_lesson_type: Mapped[str] = mapped_column(String(30))
+    snapshot_lesson_description: Mapped[str] = mapped_column(Text)
+    snapshot_lesson_business_impact: Mapped[str] = mapped_column(Text, default="")
+    acted_by_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    acted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    superseded_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    supersession_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_adoption_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "historical_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            name="fk_adoption_tenant_historical_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "historical_lesson_id"],
+            ["decision_lessons.tenant_id", "decision_lessons.id"],
+            name="fk_adoption_tenant_lesson",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "acted_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_adoption_tenant_actor",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_adoption_tenant_superseder",
+        ),
+        CheckConstraint(
+            "decision_case_id != historical_decision_id", name="ck_adoption_not_self"
+        ),
+        CheckConstraint(
+            "status IN ('adopted','rejected','superseded')", name="ck_adoption_status"
+        ),
+        CheckConstraint("length(trim(rationale)) > 0", name="ck_adoption_rationale"),
+        CheckConstraint(
+            "(status != 'superseded') OR (superseded_at IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)",
+            name="ck_adoption_supersession",
+        ),
+        Index(
+            "uq_active_lesson_adoption",
+            "tenant_id",
+            "decision_case_id",
+            "historical_lesson_id",
+            unique=True,
+            postgresql_where=text("status IN ('adopted','rejected')"),
+            sqlite_where=text("status IN ('adopted','rejected')"),
+        ),
     )
 
 

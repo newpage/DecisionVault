@@ -36,6 +36,18 @@ inside current, candidate, and pairwise queries so restricted Decisions never
 enter ranking. This clean-schema change requires a pre-release database reset;
 no migration is provided.
 
+Governed precedent adoption remains distinct from this derived read model.
+`DecisionPrecedentReference` freezes an explicit relationship type, rationale,
+similarity version/components/score, Business Concept, historical status, and
+authorized outcome/effectiveness facts. `DecisionLessonAdoption` separately
+freezes an explicitly adopted or rejected historical lesson. Removed references
+and superseded lesson choices remain in history. Commands revalidate tenant,
+classification, access policy, historical state, and active Membership; then
+increment the Decision input revision, mark completed reviews stale, and write
+audits atomically. Mutations are limited to draft and evidence collection. These
+tenant-composite tables require a clean pre-release database reset; no migration
+or generic graph infrastructure is provided.
+
 ## System context
 
 DecisionVault is a multi-tenant decision-intelligence application. Existing source repositories remain authoritative; uploaded source material is extracted into draft Knowledge Cards, reviewed as governed knowledge, retrieved for grounded answers, and retained as evidence for Decision Cases.

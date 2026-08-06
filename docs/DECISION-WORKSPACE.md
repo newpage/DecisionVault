@@ -83,6 +83,14 @@ Decision-level classification and access policy are also checked before a
 historical row can enter candidate retrieval. These new Decision columns require
 a clean pre-release database recreation under ADR-0001.
 
+A search result or comparison is not a Decision input. An authorized user may
+explicitly attach a supporting, cautionary, analogous, exception, or contrary
+precedent with a rationale. The reference displays separately with its frozen
+similarity and historical-result snapshot. Historical lessons require a separate
+adopted or rejected choice and rationale; neither comparison nor attachment
+adopts a lesson automatically. Changes are limited to draft/evidence collection,
+increment the input revision, and make completed reviews stale.
+
 ## Engineering checklist for changes
 
 - Preserve tenant predicates on the decision, business concept, knowledge, evidence, and audit queries.
