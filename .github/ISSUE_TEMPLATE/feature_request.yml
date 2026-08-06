@@ -1,0 +1,31 @@
+name: Engineering proposal
+description: Propose an engineering or product change for review
+title: "[Proposal]: "
+labels: ["proposal"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user or engineering problem without prescribing architecture.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome and acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Tenant, security, data, deployment, and rollback considerations
+    validations:
+      required: true
+

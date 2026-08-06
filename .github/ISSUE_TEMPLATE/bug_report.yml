@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible defect in DecisionVault
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. ...\n2. ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options: [Mac workstation, Linux server, GitHub Actions, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: tenant_security
+    attributes:
+      label: Tenant and security impact
+      description: Do not include tenant data, credentials, tokens, or secrets. State whether isolation or authorization may be affected.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized logs or screenshots
+
