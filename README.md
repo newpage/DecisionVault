@@ -27,19 +27,16 @@ Source Information → Ingestion → Draft Knowledge Card → Human Review → P
 ```bash
 cp .env.example .env
 # Edit JWT_SECRET before use
+# Set CORS_ORIGINS=http://localhost:3200
+# Set NEXT_PUBLIC_API_URL=http://localhost:8200/api/v1
 docker compose down -v
 docker compose up --build
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3200`.
 
-Demo login:
-
-```text
-Tenant: acme
-Email: demo@decisionvault.ai
-Password: DecisionVault!
-```
+For the local demo login, use the `DEMO_TENANT_SLUG`, `DEMO_EMAIL`, and
+`DEMO_PASSWORD` values configured in your uncommitted `.env` file.
 
 Required Ollama models:
 

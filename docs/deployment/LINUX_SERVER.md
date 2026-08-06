@@ -6,7 +6,7 @@ DecisionVault uses the base `docker-compose.yml` for development and
 The override:
 
 - Publishes FastAPI only on `127.0.0.1:8200`.
-- Publishes Next.js only on `127.0.0.1:3000`.
+- Publishes Next.js only on `127.0.0.1:3200` by default.
 - Uses `/api/v1` as the browser API URL.
 - Leaves PostgreSQL and the worker unavailable from the public network.
 - Keeps Apache as the only public HTTPS entry point.
@@ -80,8 +80,8 @@ ProxyPassReverse /api/ http://127.0.0.1:8200/api/
 ProxyPass        /health http://127.0.0.1:8200/health
 ProxyPassReverse /health http://127.0.0.1:8200/health
 
-ProxyPass        / http://127.0.0.1:3000/
-ProxyPassReverse / http://127.0.0.1:3000/
+ProxyPass        / http://127.0.0.1:3200/
+ProxyPassReverse / http://127.0.0.1:3200/
 ```
 
 The `/api/` rules must appear before the `/` frontend rule.
