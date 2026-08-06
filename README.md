@@ -64,3 +64,7 @@ Ollama is optional. Search and deterministic grounded summaries continue to work
 ## Development policy
 
 See `docs/adr/ADR-0001-pre-release-breaking-changes.md`.
+
+## Platform architecture
+
+The current implementation is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The proposed evolution toward **DecisionVault — The Enterprise Decision Intelligence Platform** is documented in the [DecisionVault Platform Blueprint](docs/architecture/DECISIONVAULT-PLATFORM-BLUEPRINT.md); proposed capabilities there are not current product behavior.
