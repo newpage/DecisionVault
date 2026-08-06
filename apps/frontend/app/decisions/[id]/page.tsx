@@ -108,6 +108,45 @@ type WorkspaceResponse = {
   };
 };
 
+type DecisionReview = {
+  id: string;
+  sequence: number;
+  review_type: string;
+  assigned_reviewer_id: string;
+  status: string;
+  conclusion: string | null;
+  summary: string;
+  freshness_status: string;
+  submitted_at: string | null;
+  evidence_ids: string[];
+};
+
+type ReviewFinding = {
+  id: string;
+  review_id: string;
+  title: string;
+  description: string;
+  severity: string;
+  required_response: boolean;
+  status: string;
+};
+
+type ApprovalCondition = {
+  id: string;
+  condition_text: string;
+  responsible_party: string;
+  due_date: string | null;
+  status: string;
+};
+
+type ReviewWorkspace = {
+  reviews: DecisionReview[];
+  findings: ReviewFinding[];
+  approval_actions: {id: string; action: string; rationale: string; created_at: string}[];
+  conditions: ApprovalCondition[];
+  capabilities: Record<string, boolean>;
+};
+
 const tabs = [
   "Overview",
   "Evidence",
@@ -124,7 +163,13 @@ export default function DecisionWorkspace() {
     useState<(typeof tabs)[number]>("Overview");
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspace>();
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewerId, setReviewerId] = useState("");
+  const [reviewType, setReviewType] = useState("final_approval");
+  const [reviewRationale, setReviewRationale] = useState("");
+  const [findingTitle, setFindingTitle] = useState("");
+  const [findingDescription, setFindingDescription] = useState("");
   const [available, setAvailable] = useState<AvailableEvidence[]>([]);
   const [history, setHistory] = useState<KnowledgeCard[]>([]);
   const [evidenceBusy, setEvidenceBusy] = useState(false);
@@ -146,6 +191,15 @@ export default function DecisionWorkspace() {
       ]);
       setData(workspace);
       setAvailable(eligible);
+      try {
+        setReviewWorkspace(
+          await api<ReviewWorkspace>(
+            `/decisions/${params.id}/review-workspace`,
+          ),
+        );
+      } catch {
+        setReviewWorkspace(undefined);
+      }
       try {
         setHistory(
           await api<KnowledgeCard[]>(
@@ -170,22 +224,27 @@ export default function DecisionWorkspace() {
     void load();
   }, [params.id]);
 
-  async function changeStatus(status: string) {
-    setUpdatingStatus(true);
+  async function reviewAction(
+    path: string,
+    body?: object,
+    method = "POST",
+  ) {
+    setReviewBusy(true);
     try {
-      await api(`/decisions/${params.id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({status}),
+      setError("");
+      await api(`/decisions/${params.id}${path}`, {
+        method,
+        body: body ? JSON.stringify(body) : undefined,
       });
       await load();
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to update decision status.",
+          : "Unable to update the governed review workflow.",
       );
     } finally {
-      setUpdatingStatus(false);
+      setReviewBusy(false);
     }
   }
 
@@ -322,24 +381,9 @@ export default function DecisionWorkspace() {
             />
             Refresh
           </button>
-          <select
-            value={decision.status}
-            onChange={(event) =>
-              void changeStatus(event.target.value)
-            }
-            disabled={updatingStatus}
-            className={styles.statusSelect}
-            aria-label="Decision status"
-          >
-            <option value={decision.status}>
-              {decision.status.replaceAll("_", " ")}
-            </option>
-            {summary.allowed_transitions.map((status) => (
-              <option value={status} key={status}>
-                {status.replaceAll("_", " ")}
-              </option>
-            ))}
-          </select>
+          <span className={styles.statusBadge}>
+            {decision.status.replaceAll("_", " ")}
+          </span>
         </div>
       </header>
 
@@ -744,7 +788,254 @@ export default function DecisionWorkspace() {
         </DashboardWidget>
       ) : null}
 
-      {["AI Analysis", "Approvals", "Reports"].includes(activeTab) ? (
+      {activeTab === "Approvals" ? (
+        <section className={styles.approvalWorkspace}>
+          {!reviewWorkspace ? (
+            <DashboardWidget
+              eyebrow="Access controlled"
+              title="Review workspace"
+            >
+              <div className={styles.emptyPanel}>
+                You do not have permission to view review and approval records.
+              </div>
+            </DashboardWidget>
+          ) : (
+            <>
+              <DashboardWidget
+                eyebrow="Governed workflow"
+                title="Review controls"
+              >
+                <div className={styles.approvalControls}>
+                  {reviewWorkspace.capabilities.assign ? (
+                    <div className={styles.controlGroup}>
+                      <strong>Assign a reviewer</strong>
+                      <input
+                        aria-label="Reviewer user ID"
+                        placeholder="Reviewer user ID"
+                        value={reviewerId}
+                        onChange={(event) => setReviewerId(event.target.value)}
+                      />
+                      <select
+                        aria-label="Review type"
+                        value={reviewType}
+                        onChange={(event) => setReviewType(event.target.value)}
+                      >
+                        <option value="business">Business</option>
+                        <option value="risk">Risk</option>
+                        <option value="compliance">Compliance</option>
+                        <option value="final_approval">Final approval</option>
+                      </select>
+                      <button
+                        disabled={reviewBusy || !reviewerId.trim()}
+                        onClick={() =>
+                          void reviewAction("/reviews", {
+                            reviewer_id: reviewerId.trim(),
+                            review_type: reviewType,
+                          })
+                        }
+                      >
+                        Assign review
+                      </button>
+                    </div>
+                  ) : null}
+                  {reviewWorkspace.capabilities.manage &&
+                  decision.status === "evidence_collection" ? (
+                    <button
+                      className={styles.primaryAction}
+                      disabled={reviewBusy}
+                      onClick={() => void reviewAction("/submit-review")}
+                    >
+                      Submit for review
+                    </button>
+                  ) : null}
+                  <div className={styles.controlGroup}>
+                    <strong>Approval rationale</strong>
+                    <textarea
+                      aria-label="Approval rationale"
+                      placeholder="Record the decision authority's rationale"
+                      value={reviewRationale}
+                      onChange={(event) =>
+                        setReviewRationale(event.target.value)
+                      }
+                    />
+                    <div className={styles.actionRow}>
+                      {reviewWorkspace.capabilities.return_for_changes &&
+                      decision.status === "in_review" ? (
+                        <button
+                          disabled={reviewBusy || reviewRationale.length < 3}
+                          onClick={() =>
+                            void reviewAction("/return-for-changes", {
+                              rationale: reviewRationale,
+                            })
+                          }
+                        >
+                          Return for changes
+                        </button>
+                      ) : null}
+                      {reviewWorkspace.capabilities.approve &&
+                      ["in_review", "conditionally_approved"].includes(
+                        decision.status,
+                      ) ? (
+                        <button
+                          disabled={reviewBusy || reviewRationale.length < 3}
+                          onClick={() =>
+                            void reviewAction("/approve", {
+                              rationale: reviewRationale,
+                            })
+                          }
+                        >
+                          Approve
+                        </button>
+                      ) : null}
+                      {reviewWorkspace.capabilities.conditionally_approve &&
+                      decision.status === "in_review" ? (
+                        <button
+                          disabled={reviewBusy || reviewRationale.length < 3}
+                          onClick={() =>
+                            void reviewAction("/conditionally-approve", {
+                              rationale: reviewRationale,
+                              conditions: [
+                                {condition_text: reviewRationale},
+                              ],
+                            })
+                          }
+                        >
+                          Approve with condition
+                        </button>
+                      ) : null}
+                      {reviewWorkspace.capabilities.reject &&
+                      decision.status === "in_review" ? (
+                        <button
+                          disabled={reviewBusy || reviewRationale.length < 3}
+                          onClick={() =>
+                            void reviewAction("/reject", {
+                              rationale: reviewRationale,
+                            })
+                          }
+                        >
+                          Reject
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </DashboardWidget>
+
+              <DashboardWidget
+                eyebrow="Assigned accountability"
+                title={`Reviews (${reviewWorkspace.reviews.length})`}
+              >
+                <div className={styles.reviewList}>
+                  {reviewWorkspace.reviews.map((review) => (
+                    <article className={styles.reviewCard} key={review.id}>
+                      <div className={styles.reviewHeader}>
+                        <div>
+                          <strong>
+                            Review {review.sequence}: {review.review_type.replaceAll("_", " ")}
+                          </strong>
+                          <span>Reviewer {review.assigned_reviewer_id}</span>
+                        </div>
+                        <div className={styles.evidenceBadges}>
+                          <span>{review.status.replaceAll("_", " ")}</span>
+                          <span>{review.freshness_status}</span>
+                          <span>{review.evidence_ids.length} evidence</span>
+                        </div>
+                      </div>
+                      {review.summary ? <p>{review.summary}</p> : null}
+                      {reviewWorkspace.capabilities.perform &&
+                      review.status === "assigned" &&
+                      review.submitted_at ? (
+                        <button
+                          disabled={reviewBusy}
+                          onClick={() =>
+                            void reviewAction(`/reviews/${review.id}/start`)
+                          }
+                        >
+                          Start review
+                        </button>
+                      ) : null}
+                      {reviewWorkspace.capabilities.perform &&
+                      review.status === "in_progress" ? (
+                        <div className={styles.findingControls}>
+                          <input
+                            aria-label="Finding title"
+                            placeholder="Finding title"
+                            value={findingTitle}
+                            onChange={(event) => setFindingTitle(event.target.value)}
+                          />
+                          <textarea
+                            aria-label="Finding description"
+                            placeholder="Finding description"
+                            value={findingDescription}
+                            onChange={(event) => setFindingDescription(event.target.value)}
+                          />
+                          <button
+                            disabled={reviewBusy || findingTitle.length < 3 || findingDescription.length < 3}
+                            onClick={() => void reviewAction(`/reviews/${review.id}/findings`, {
+                              finding_type: "comment",
+                              severity: "medium",
+                              title: findingTitle,
+                              description: findingDescription,
+                              required_response: false,
+                            })}
+                          >
+                            Record finding
+                          </button>
+                          <button
+                            disabled={reviewBusy || reviewRationale.length < 3}
+                            onClick={() => void reviewAction(`/reviews/${review.id}/complete`, {
+                              conclusion: "recommend_approve",
+                              summary: reviewRationale,
+                            })}
+                          >
+                            Complete and recommend approval
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </DashboardWidget>
+
+              <DashboardWidget
+                eyebrow="Tracked exceptions"
+                title={`Findings and conditions (${reviewWorkspace.findings.length + reviewWorkspace.conditions.length})`}
+              >
+                <div className={styles.reviewList}>
+                  {reviewWorkspace.findings.map((finding) => (
+                    <article className={styles.reviewCard} key={finding.id}>
+                      <strong>{finding.title}</strong>
+                      <span>{finding.severity} · {finding.status}</span>
+                      <p>{finding.description}</p>
+                      {finding.status === "open" && reviewWorkspace.capabilities.perform ? (
+                        <button disabled={reviewBusy || reviewRationale.length < 3} onClick={() => void reviewAction(
+                          `/reviews/${finding.review_id}/findings/${finding.id}`,
+                          {status: "accepted", response: reviewRationale},
+                          "PATCH",
+                        )}>Accept finding</button>
+                      ) : null}
+                    </article>
+                  ))}
+                  {reviewWorkspace.conditions.map((condition) => (
+                    <article className={styles.reviewCard} key={condition.id}>
+                      <strong>{condition.condition_text}</strong>
+                      <span>{condition.status} · {condition.responsible_party || "Unassigned"}</span>
+                      {condition.status === "open" && reviewWorkspace.capabilities.manage ? (
+                        <button disabled={reviewBusy || reviewRationale.length < 3} onClick={() => void reviewAction(
+                          `/conditions/${condition.id}/satisfy`,
+                          {response: reviewRationale},
+                        )}>Mark satisfied</button>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </DashboardWidget>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {["AI Analysis", "Reports"].includes(activeTab) ? (
         <DashboardWidget
           eyebrow="Release 0.5 roadmap"
           title={`${activeTab} workspace`}

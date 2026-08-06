@@ -18,9 +18,7 @@ TERMINAL_STATUSES = frozenset({"closed"})
 ALLOWED_TRANSITIONS = {
     "draft": frozenset({"evidence_collection"}),
     "evidence_collection": frozenset({"in_review"}),
-    "in_review": frozenset(
-        {"conditionally_approved", "approved", "rejected"}
-    ),
+    "in_review": frozenset({"conditionally_approved", "approved", "rejected"}),
     "conditionally_approved": frozenset({"approved", "rejected", "closed"}),
     "approved": frozenset({"closed"}),
     "rejected": frozenset({"closed"}),
@@ -51,4 +49,23 @@ def validate_transition(*, current: str, requested: str) -> None:
 
 
 def allowed_transitions(status: str) -> list[str]:
-    return sorted(ALLOWED_TRANSITIONS.get(status, frozenset()))
+    return []
+
+
+def validate_review_submission(status: str) -> None:
+    if status != "evidence_collection":
+        raise InvalidTransitionError(current=status, requested="in_review")
+
+
+def validate_approval_action(status: str, requested: str) -> None:
+    allowed = {
+        "in_review": {"approved", "conditionally_approved", "rejected"},
+        "conditionally_approved": {"approved"},
+    }
+    if requested not in allowed.get(status, set()):
+        raise InvalidTransitionError(current=status, requested=requested)
+
+
+def validate_return_for_changes(status: str) -> None:
+    if status != "in_review":
+        raise InvalidTransitionError(current=status, requested="evidence_collection")

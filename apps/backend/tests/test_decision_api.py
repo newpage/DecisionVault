@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.deps import get_principal
-from app.modules.decisions.policies import DecisionPermissionError
 from app.modules.decisions.router import get_service, router
 from app.modules.decisions.schemas import DecisionResponse
 from app.modules.decisions.service import DecisionNotFoundError
@@ -171,24 +170,12 @@ def test_authenticated_creation_has_explicit_response_schema():
     assert result.json()["workspace_id"] == "workspace-1"
 
 
-def test_unauthorized_mutation_is_forbidden():
-    service = FakeService()
-    service.failure = DecisionPermissionError("decision.transition")
-
-    result = client(service).patch(
-        "/decisions/decision-1/status", json={"status": "in_review"}
-    )
-
-    assert result.status_code == 403
-
-
-def test_valid_transition_returns_updated_decision():
+def test_generic_status_mutation_is_not_exposed():
     result = client(FakeService()).patch(
         "/decisions/decision-1/status", json={"status": "in_review"}
     )
 
-    assert result.status_code == 200
-    assert result.json()["status"] == "in_review"
+    assert result.status_code == 404
 
 
 def test_foreign_object_reference_is_non_disclosing_not_found():
@@ -201,20 +188,10 @@ def test_foreign_object_reference_is_non_disclosing_not_found():
     assert result.json() == {"detail": "Workspace not found"}
 
 
-def test_invalid_status_is_rejected_at_api_boundary():
-    result = client(FakeService()).patch(
-        "/decisions/decision-1/status", json={"status": "invented"}
-    )
-
-    assert result.status_code == 422
-
-
 def test_available_active_history_selection_and_removal_contracts():
     test_client = client(FakeService())
 
-    available = test_client.get(
-        "/decisions/decision-1/available-evidence"
-    )
+    available = test_client.get("/decisions/decision-1/available-evidence")
     selected = test_client.post(
         "/decisions/decision-1/evidence",
         json={

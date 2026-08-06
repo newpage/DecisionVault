@@ -57,6 +57,14 @@ def seed(db: Session):
             "decision.evidence.select",
             "decision.evidence.remove",
             "decision.evidence.history",
+            "decision.review.view",
+            "decision.review.assign",
+            "decision.review.perform",
+            "decision.review.manage",
+            "decision.approve",
+            "decision.conditionally_approve",
+            "decision.reject",
+            "decision.return_for_changes",
             "admin.manage",
         ]
     ]

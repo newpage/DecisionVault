@@ -3,8 +3,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.decisions.lifecycle import InvalidTransitionError
-from app.modules.decisions.policies import DecisionPermissionError
 from app.modules.decisions.schemas import DecisionCreate
 from app.modules.decisions.service import DecisionNotFoundError, DecisionService
 
@@ -141,68 +139,6 @@ def test_creation_rejects_foreign_tenant_relationships(command):
             role_ids={"role-1"},
             permissions={"decision.create"},
             command=command,
-        )
-
-    assert repository.saved is None
-
-
-def test_transition_requires_explicit_permission():
-    service = DecisionService(FakeRepository())
-
-    with pytest.raises(DecisionPermissionError):
-        service.transition(
-            tenant_id="tenant-1",
-            decision_id="decision-1",
-            actor_id="user-1",
-            permissions={"decision.view"},
-            status="in_review",
-        )
-
-
-def test_transition_changes_state_and_creates_audit_together():
-    repository = FakeRepository()
-    service = DecisionService(repository)
-
-    response = service.transition(
-        tenant_id="tenant-1",
-        decision_id="decision-1",
-        actor_id="user-1",
-        permissions={"decision.transition"},
-        status="in_review",
-        rationale="Evidence review complete",
-    )
-
-    decision, event = repository.saved
-    assert response.status == "in_review"
-    assert decision.status == "in_review"
-    assert event.event_type == "DecisionStatusChanged"
-    assert event.details["rationale"] == "Evidence review complete"
-
-
-def test_foreign_tenant_decision_is_non_disclosing_not_found():
-    service = DecisionService(FakeRepository())
-
-    with pytest.raises(DecisionNotFoundError, match="Decision not found"):
-        service.transition(
-            tenant_id="tenant-2",
-            decision_id="decision-1",
-            actor_id="user-2",
-            permissions={"decision.transition"},
-            status="in_review",
-        )
-
-
-def test_forbidden_transition_does_not_save_or_audit():
-    repository = FakeRepository()
-    service = DecisionService(repository)
-
-    with pytest.raises(InvalidTransitionError):
-        service.transition(
-            tenant_id="tenant-1",
-            decision_id="decision-1",
-            actor_id="user-1",
-            permissions={"decision.transition"},
-            status="approved",
         )
 
     assert repository.saved is None

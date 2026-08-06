@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -8,10 +8,16 @@ from app.models import (
     BusinessConcept,
     DecisionCase,
     DecisionEvidence,
+    DecisionApprovalAction,
+    DecisionApprovalCondition,
+    DecisionReview,
+    DecisionReviewEvidence,
+    DecisionReviewFinding,
     KnowledgeCard,
     KnowledgeChunk,
     KnowledgeEvidence,
     SourceDocument,
+    Membership,
     Workspace,
 )
 from app.modules.knowledge.policies import authorized_knowledge_filters
@@ -32,9 +38,7 @@ class DecisionRepository:
             ).all()
         )
 
-    def get_decision(
-        self, *, tenant_id: str, decision_id: str
-    ) -> DecisionCase | None:
+    def get_decision(self, *, tenant_id: str, decision_id: str) -> DecisionCase | None:
         return self._db.scalar(
             select(DecisionCase).where(
                 DecisionCase.id == decision_id,
@@ -54,9 +58,7 @@ class DecisionRepository:
             .with_for_update()
         )
 
-    def get_workspace(
-        self, *, tenant_id: str, workspace_id: str
-    ) -> Workspace | None:
+    def get_workspace(self, *, tenant_id: str, workspace_id: str) -> Workspace | None:
         return self._db.scalar(
             select(Workspace).where(
                 Workspace.id == workspace_id,
@@ -64,9 +66,7 @@ class DecisionRepository:
             )
         )
 
-    def get_concept(
-        self, *, tenant_id: str, concept_id: str
-    ) -> BusinessConcept | None:
+    def get_concept(self, *, tenant_id: str, concept_id: str) -> BusinessConcept | None:
         return self._db.scalar(
             select(BusinessConcept).where(
                 BusinessConcept.id == concept_id,
@@ -147,9 +147,7 @@ class DecisionRepository:
             if card_ids
             else []
         )
-        by_card: dict[str, list[KnowledgeChunk]] = {
-            card_id: [] for card_id in card_ids
-        }
+        by_card: dict[str, list[KnowledgeChunk]] = {card_id: [] for card_id in card_ids}
         for chunk in chunks:
             by_card[chunk.knowledge_card_id].append(chunk)
         return [(card, by_card[card.id]) for card in cards]
@@ -278,6 +276,177 @@ class DecisionRepository:
                 .limit(limit)
             ).all()
         )
+
+    def tenant_has_user(self, *, tenant_id: str, user_id: str) -> bool:
+        return (
+            self._db.scalar(
+                select(Membership.id).where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.user_id == user_id,
+                )
+            )
+            is not None
+        )
+
+    def next_review_sequence(self, *, tenant_id: str, decision_id: str) -> int:
+        current = self._db.scalar(
+            select(func.max(DecisionReview.sequence)).where(
+                DecisionReview.tenant_id == tenant_id,
+                DecisionReview.decision_case_id == decision_id,
+            )
+        )
+        return int(current or 0) + 1
+
+    def list_reviews(self, *, tenant_id: str, decision_id: str) -> list[DecisionReview]:
+        return list(
+            self._db.scalars(
+                select(DecisionReview)
+                .where(
+                    DecisionReview.tenant_id == tenant_id,
+                    DecisionReview.decision_case_id == decision_id,
+                )
+                .order_by(DecisionReview.sequence.desc())
+            ).all()
+        )
+
+    def get_review(
+        self, *, tenant_id: str, decision_id: str, review_id: str
+    ) -> DecisionReview | None:
+        return self._db.scalar(
+            select(DecisionReview).where(
+                DecisionReview.id == review_id,
+                DecisionReview.tenant_id == tenant_id,
+                DecisionReview.decision_case_id == decision_id,
+            )
+        )
+
+    def get_review_for_update(
+        self, *, tenant_id: str, decision_id: str, review_id: str
+    ) -> DecisionReview | None:
+        return self._db.scalar(
+            select(DecisionReview)
+            .where(
+                DecisionReview.id == review_id,
+                DecisionReview.tenant_id == tenant_id,
+                DecisionReview.decision_case_id == decision_id,
+            )
+            .with_for_update()
+        )
+
+    def list_review_evidence_ids(self, *, tenant_id: str, review_id: str) -> list[str]:
+        return list(
+            self._db.scalars(
+                select(DecisionReviewEvidence.decision_evidence_id).where(
+                    DecisionReviewEvidence.tenant_id == tenant_id,
+                    DecisionReviewEvidence.review_id == review_id,
+                )
+            ).all()
+        )
+
+    def list_findings(
+        self, *, tenant_id: str, decision_id: str, review_id: str | None = None
+    ) -> list[DecisionReviewFinding]:
+        statement = (
+            select(DecisionReviewFinding)
+            .join(
+                DecisionReview,
+                (DecisionReview.id == DecisionReviewFinding.review_id)
+                & (DecisionReview.tenant_id == tenant_id),
+            )
+            .where(
+                DecisionReviewFinding.tenant_id == tenant_id,
+                DecisionReview.decision_case_id == decision_id,
+            )
+        )
+        if review_id:
+            statement = statement.where(DecisionReviewFinding.review_id == review_id)
+        return list(
+            self._db.scalars(
+                statement.order_by(DecisionReviewFinding.raised_at.desc())
+            ).all()
+        )
+
+    def get_finding(
+        self, *, tenant_id: str, review_id: str, finding_id: str
+    ) -> DecisionReviewFinding | None:
+        return self._db.scalar(
+            select(DecisionReviewFinding).where(
+                DecisionReviewFinding.id == finding_id,
+                DecisionReviewFinding.tenant_id == tenant_id,
+                DecisionReviewFinding.review_id == review_id,
+            )
+        )
+
+    def list_approval_actions(
+        self, *, tenant_id: str, decision_id: str
+    ) -> list[DecisionApprovalAction]:
+        return list(
+            self._db.scalars(
+                select(DecisionApprovalAction)
+                .where(
+                    DecisionApprovalAction.tenant_id == tenant_id,
+                    DecisionApprovalAction.decision_case_id == decision_id,
+                )
+                .order_by(DecisionApprovalAction.created_at.desc())
+            ).all()
+        )
+
+    def list_conditions(
+        self, *, tenant_id: str, decision_id: str
+    ) -> list[DecisionApprovalCondition]:
+        return list(
+            self._db.scalars(
+                select(DecisionApprovalCondition)
+                .where(
+                    DecisionApprovalCondition.tenant_id == tenant_id,
+                    DecisionApprovalCondition.decision_case_id == decision_id,
+                )
+                .order_by(DecisionApprovalCondition.created_at)
+            ).all()
+        )
+
+    def get_condition(
+        self, *, tenant_id: str, decision_id: str, condition_id: str
+    ) -> DecisionApprovalCondition | None:
+        return self._db.scalar(
+            select(DecisionApprovalCondition).where(
+                DecisionApprovalCondition.id == condition_id,
+                DecisionApprovalCondition.tenant_id == tenant_id,
+                DecisionApprovalCondition.decision_case_id == decision_id,
+            )
+        )
+
+    def mark_completed_reviews_stale(
+        self, *, tenant_id: str, decision_id: str
+    ) -> list[DecisionReview]:
+        reviews = self.list_reviews(tenant_id=tenant_id, decision_id=decision_id)
+        stale = []
+        for review in reviews:
+            if review.status == "completed" and review.freshness_status == "current":
+                review.freshness_status = "stale"
+                self._db.add(review)
+                stale.append(review)
+        return stale
+
+    def save_review_action(
+        self,
+        *,
+        objects: list,
+        events: list[AuditEvent],
+        refresh: list | None = None,
+    ) -> None:
+        try:
+            for item in objects:
+                self._db.add(item)
+            self._db.flush()
+            for event in events:
+                self._db.add(event)
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise
+        for item in refresh or []:
+            self._db.refresh(item)
 
     def save_with_audit(
         self, *, decision: DecisionCase, event: AuditEvent

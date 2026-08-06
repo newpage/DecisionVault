@@ -12,9 +12,7 @@ class DecisionCreate(BaseModel):
     title: str = Field(min_length=3, max_length=240)
     question: str = Field(min_length=10)
     supplier_name: str = Field(min_length=2, max_length=180)
-    supplier_category: str = Field(
-        default="Electronic Manufacturer", max_length=120
-    )
+    supplier_category: str = Field(default="Electronic Manufacturer", max_length=120)
     supplier_location: str = Field(default="", max_length=180)
     owner_name: str = Field(min_length=2, max_length=180)
     due_date: date | None = None
@@ -26,22 +24,7 @@ class DecisionCreate(BaseModel):
         "renewal",
         "disqualification",
     ] = "initial_qualification"
-    business_unit: str = Field(
-        default="Electronics Supply Chain", max_length=180
-    )
-
-
-class DecisionTransition(BaseModel):
-    status: Literal[
-        "draft",
-        "evidence_collection",
-        "in_review",
-        "approved",
-        "conditionally_approved",
-        "rejected",
-        "closed",
-    ]
-    rationale: str = Field(default="", max_length=1000)
+    business_unit: str = Field(default="Electronics Supply Chain", max_length=180)
 
 
 class DecisionResponse(BaseModel):
@@ -67,6 +50,7 @@ class DecisionResponse(BaseModel):
     readiness_score: int
     readiness_status: str
     evidence_summary: dict
+    input_revision: int = 1
     created_by: str
     created_at: datetime
     updated_at: datetime
@@ -147,6 +131,152 @@ class EvidenceRemoval(BaseModel):
 class EvidenceMutationResponse(BaseModel):
     decision: DecisionResponse
     evidence: EvidenceResponse
+
+
+class ReviewAssignment(BaseModel):
+    reviewer_id: str
+    review_type: Literal["business", "risk", "compliance", "final_approval"]
+
+
+class ReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    decision_case_id: str
+    sequence: int
+    review_type: str
+    assigned_reviewer_id: str
+    assigned_by: str
+    assigned_at: datetime
+    status: str
+    conclusion: str | None
+    summary: str
+    decision_revision: int | None
+    freshness_status: str
+    submitted_at: datetime | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    cancelled_by: str | None
+    cancelled_at: datetime | None
+    cancellation_reason: str | None
+    created_at: datetime
+    updated_at: datetime
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class ReviewFindingCreate(BaseModel):
+    finding_type: Literal[
+        "information_request",
+        "evidence_gap",
+        "risk_concern",
+        "policy_concern",
+        "control_concern",
+        "recommendation",
+        "approval_condition",
+        "comment",
+    ]
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    title: str = Field(min_length=3, max_length=240)
+    description: str = Field(min_length=3, max_length=4000)
+    related_evidence_id: str | None = None
+    related_section: str = Field(default="", max_length=120)
+    required_response: bool = False
+
+
+class ReviewFindingResolution(BaseModel):
+    status: Literal["addressed", "accepted", "closed", "withdrawn"]
+    response: str = Field(min_length=3, max_length=4000)
+
+
+class ReviewFindingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    review_id: str
+    finding_type: str
+    severity: str
+    title: str
+    description: str
+    related_evidence_id: str | None
+    related_section: str
+    required_response: bool
+    status: str
+    resolution_response: str
+    raised_by: str
+    raised_at: datetime
+    resolved_by: str | None
+    resolved_at: datetime | None
+
+
+class ReviewCompletion(BaseModel):
+    conclusion: Literal[
+        "recommend_approve",
+        "recommend_conditional",
+        "recommend_reject",
+        "changes_required",
+    ]
+    summary: str = Field(min_length=3, max_length=4000)
+
+
+class ReviewCancellation(BaseModel):
+    rationale: str = Field(min_length=3, max_length=2000)
+
+
+class DecisionActionRequest(BaseModel):
+    rationale: str = Field(min_length=3, max_length=4000)
+
+
+class ApprovalConditionCreate(BaseModel):
+    condition_text: str = Field(min_length=3, max_length=4000)
+    responsible_party: str = Field(default="", max_length=180)
+    due_date: date | None = None
+
+
+class ConditionalApprovalRequest(DecisionActionRequest):
+    conditions: list[ApprovalConditionCreate] = Field(min_length=1)
+
+
+class ConditionSatisfaction(BaseModel):
+    response: str = Field(min_length=3, max_length=4000)
+
+
+class ApprovalActionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    decision_case_id: str
+    review_id: str | None
+    action: str
+    rationale: str
+    actor_id: str
+    created_at: datetime
+
+
+class ApprovalConditionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    decision_case_id: str
+    approval_action_id: str
+    condition_text: str
+    responsible_party: str
+    due_date: date | None
+    status: str
+    created_by: str
+    created_at: datetime
+    satisfied_by: str | None
+    satisfied_at: datetime | None
+    satisfaction_response: str
+
+
+class ApprovalMutationResponse(BaseModel):
+    decision: DecisionResponse
+    action: ApprovalActionResponse
+    conditions: list[ApprovalConditionResponse] = Field(default_factory=list)
+
+
+class ReviewWorkspaceResponse(BaseModel):
+    reviews: list[ReviewResponse]
+    findings: list[ReviewFindingResponse]
+    approval_actions: list[ApprovalActionResponse]
+    conditions: list[ApprovalConditionResponse]
+    capabilities: dict[str, bool]
 
 
 class ActivityResponse(BaseModel):

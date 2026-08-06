@@ -38,4 +38,4 @@ def test_forbidden_same_state_and_invalid_transitions(current, requested):
 
 
 def test_allowed_transitions_exposes_only_next_states():
-    assert allowed_transitions("evidence_collection") == ["in_review"]
+    assert allowed_transitions("evidence_collection") == []

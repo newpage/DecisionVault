@@ -10,10 +10,7 @@ from app.modules.decisions.evidence import (
     scoring_inputs,
     validate_relationship_type,
 )
-from app.modules.decisions.lifecycle import (
-    allowed_transitions,
-    validate_transition,
-)
+from app.modules.decisions.lifecycle import allowed_transitions
 from app.modules.decisions.policies import (
     authorize_create,
     authorize_edit,
@@ -21,7 +18,6 @@ from app.modules.decisions.policies import (
     authorize_evidence_remove,
     authorize_evidence_select,
     authorize_evidence_view,
-    authorize_transition,
     authorize_view,
 )
 from app.modules.decisions.repository import DecisionRepository
@@ -73,9 +69,7 @@ class DecisionService:
     ) -> DecisionWorkspaceResponse:
         authorize_view(permissions)
         authorize_evidence_view(permissions)
-        decision = self._require_decision(
-            tenant_id=tenant_id, decision_id=decision_id
-        )
+        decision = self._require_decision(tenant_id=tenant_id, decision_id=decision_id)
         concept = (
             self._repository.get_concept(
                 tenant_id=tenant_id,
@@ -104,14 +98,10 @@ class DecisionService:
                     "trusted_count": readiness.trusted,
                     "governed_count": readiness.governed,
                     "confidence_percent": round(decision.confidence * 100),
-                    "missing_information": summary.get(
-                        "missing_information", []
-                    ),
+                    "missing_information": summary.get("missing_information", []),
                     "control_areas": summary.get("control_areas", []),
                     "calculation": summary.get("calculation", {}),
-                    "allowed_transitions": allowed_transitions(
-                        decision.status
-                    ),
+                    "allowed_transitions": allowed_transitions(decision.status),
                 },
             }
         )
@@ -127,9 +117,12 @@ class DecisionService:
         command: DecisionCreate,
     ) -> DecisionResponse:
         authorize_create(permissions)
-        if self._repository.get_workspace(
-            tenant_id=tenant_id, workspace_id=command.workspace_id
-        ) is None:
+        if (
+            self._repository.get_workspace(
+                tenant_id=tenant_id, workspace_id=command.workspace_id
+            )
+            is None
+        ):
             raise DecisionNotFoundError("Workspace not found")
         concept = (
             self._repository.get_concept(
@@ -165,6 +158,7 @@ class DecisionService:
             readiness_score=readiness.score,
             readiness_status=readiness.status,
             evidence_summary=readiness.summary,
+            input_revision=1,
             created_by=actor_id,
         )
         event = AuditEvent(
@@ -173,8 +167,7 @@ class DecisionService:
             event_type="DecisionCreated",
             entity_type="decision_case",
             description=(
-                "Supplier qualification decision created for "
-                f"{command.supplier_name}."
+                f"Supplier qualification decision created for {command.supplier_name}."
             ),
             details={
                 "supplier_category": command.supplier_category,
@@ -183,9 +176,7 @@ class DecisionService:
                 "evidence_count": readiness.total,
             },
         )
-        saved = self._repository.save_with_audit(
-            decision=decision, event=event
-        )
+        saved = self._repository.save_with_audit(decision=decision, event=event)
         return DecisionResponse.model_validate(saved)
 
     def list_available_evidence(
@@ -199,9 +190,7 @@ class DecisionService:
     ) -> list[AvailableEvidenceResponse]:
         authorize_evidence_view(permissions)
         authorize_view(permissions)
-        decision = self._require_decision(
-            tenant_id=tenant_id, decision_id=decision_id
-        )
+        decision = self._require_decision(tenant_id=tenant_id, decision_id=decision_id)
         if not decision.business_concept_id:
             return []
         rows = self._repository.list_available_evidence(
@@ -352,9 +341,7 @@ class DecisionService:
             snapshot_content_revision=None,
             snapshot_source_metadata={
                 "chunk_index": chunk.chunk_index if chunk else None,
-                "source_status": (
-                    source_document.status if source_document else None
-                ),
+                "source_status": (source_document.status if source_document else None),
             },
             selected_by=actor_id,
         )
@@ -363,6 +350,14 @@ class DecisionService:
         )
         before = self._derived_values(decision)
         self._recalculate(decision, [*active, snapshot])
+        decision.input_revision = getattr(decision, "input_revision", 1) + 1
+        stale_reviews = (
+            self._repository.mark_completed_reviews_stale(
+                tenant_id=tenant_id, decision_id=decision.id
+            )
+            if hasattr(self._repository, "mark_completed_reviews_stale")
+            else []
+        )
         events = self._evidence_events(
             decision=decision,
             snapshot=snapshot,
@@ -371,16 +366,13 @@ class DecisionService:
             rationale=rationale,
             before=before,
         )
+        events.extend(self._stale_review_events(decision, stale_reviews, actor_id))
         try:
-            saved_decision, saved_snapshot = (
-                self._repository.save_evidence_change(
-                    decision=decision, evidence=snapshot, events=events
-                )
+            saved_decision, saved_snapshot = self._repository.save_evidence_change(
+                decision=decision, evidence=snapshot, events=events
             )
         except IntegrityError as exc:
-            raise DecisionConflictError(
-                "Evidence is already selected"
-            ) from exc
+            raise DecisionConflictError("Evidence is already selected") from exc
         return EvidenceMutationResponse(
             decision=DecisionResponse.model_validate(saved_decision),
             evidence=EvidenceResponse.model_validate(saved_snapshot),
@@ -423,6 +415,14 @@ class DecisionService:
         ]
         before = self._derived_values(decision)
         self._recalculate(decision, active)
+        decision.input_revision = getattr(decision, "input_revision", 1) + 1
+        stale_reviews = (
+            self._repository.mark_completed_reviews_stale(
+                tenant_id=tenant_id, decision_id=decision.id
+            )
+            if hasattr(self._repository, "mark_completed_reviews_stale")
+            else []
+        )
         events = self._evidence_events(
             decision=decision,
             snapshot=evidence,
@@ -431,6 +431,7 @@ class DecisionService:
             rationale=rationale,
             before=before,
         )
+        events.extend(self._stale_review_events(decision, stale_reviews, actor_id))
         saved_decision, saved_evidence = self._repository.save_evidence_change(
             decision=decision, evidence=evidence, events=events
         )
@@ -505,45 +506,27 @@ class DecisionService:
             ),
         ]
 
-    def transition(
-        self,
-        *,
-        tenant_id: str,
-        decision_id: str,
-        actor_id: str,
-        permissions: set[str],
-        status: str,
-        rationale: str = "",
-    ) -> DecisionResponse:
-        authorize_transition(permissions)
-        decision = self._require_decision(
-            tenant_id=tenant_id, decision_id=decision_id
-        )
-        validate_transition(current=decision.status, requested=status)
-        previous = decision.status
-        decision.status = status
-        decision.updated_at = datetime.now(timezone.utc)
-        event = AuditEvent(
-            tenant_id=tenant_id,
-            actor_id=actor_id,
-            event_type="DecisionStatusChanged",
-            entity_type="decision_case",
-            entity_id=decision.id,
-            description=f"Decision status changed from {previous} to {status}.",
-            details={
-                "previous": previous,
-                "current": status,
-                "rationale": rationale,
-            },
-        )
-        saved = self._repository.save_with_audit(
-            decision=decision, event=event
-        )
-        return DecisionResponse.model_validate(saved)
+    @staticmethod
+    def _stale_review_events(
+        decision: DecisionCase, reviews: list, actor_id: str
+    ) -> list[AuditEvent]:
+        return [
+            AuditEvent(
+                tenant_id=decision.tenant_id,
+                actor_id=actor_id,
+                event_type="DecisionReviewMarkedStale",
+                entity_type="decision_case",
+                entity_id=decision.id,
+                description="Completed review marked stale after Decision inputs changed.",
+                details={
+                    "review_id": review.id,
+                    "input_revision": decision.input_revision,
+                },
+            )
+            for review in reviews
+        ]
 
-    def _require_decision(
-        self, *, tenant_id: str, decision_id: str
-    ) -> DecisionCase:
+    def _require_decision(self, *, tenant_id: str, decision_id: str) -> DecisionCase:
         decision = self._repository.get_decision(
             tenant_id=tenant_id, decision_id=decision_id
         )
