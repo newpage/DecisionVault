@@ -67,11 +67,14 @@ persistence and evidence queries, and separate lifecycle and scoring modules
 contain deterministic rules. Decision creation and lifecycle transitions write
 their audit event in the same database transaction as the decision state.
 
-Decision evidence is constrained by the authenticated tenant, Decision
-workspace, Business Concept, membership clearance, and Knowledge Card access
-policy before it is displayed or included in readiness calculations. Evidence
-snapshots remain identifier-and-score based; immutable content snapshotting is
-not yet implemented.
+Decision evidence distinguishes available governed Knowledge from explicitly
+selected evidence. Selection validates the authenticated tenant, Decision
+workspace, Business Concept, publication and approval state, membership
+clearance, Knowledge access policy, and optional chunk ownership before copying
+content and governance facts into an immutable `DecisionEvidence` snapshot.
+Readiness and recommendations use active snapshots only. Removal retains the
+snapshot and records actor, timestamp, and rationale; selection/removal,
+recalculation, and audit events commit atomically.
 
 ## Deployment topology
 

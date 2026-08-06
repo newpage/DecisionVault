@@ -49,14 +49,31 @@ type Decision = {
 
 type KnowledgeCard = {
   id: string;
+  knowledge_card_id: string;
+  relationship_type: string;
+  selection_rationale: string;
+  snapshot_title: string;
+  snapshot_content: string;
+  snapshot_knowledge_type: string;
+  snapshot_approval_status: string;
+  snapshot_authority_level: string;
+  snapshot_trust_score: number;
+  snapshot_ai_usage_allowed: boolean;
+  selected_at: string;
+  removed_at: string | null;
+  removal_rationale: string | null;
+};
+
+type AvailableEvidence = {
+  id: string;
   title: string;
   summary: string;
   knowledge_type: string;
-  approval_status: string;
-  lifecycle_status: string;
   authority_level: string;
   trust_score: number;
   ai_usage_allowed: boolean;
+  selected: boolean;
+  chunks: {id: string; chunk_index: number; content: string}[];
 };
 
 type AuditEvent = {
@@ -108,14 +125,36 @@ export default function DecisionWorkspace() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [available, setAvailable] = useState<AvailableEvidence[]>([]);
+  const [history, setHistory] = useState<KnowledgeCard[]>([]);
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [removingEvidence, setRemovingEvidence] = useState<string>();
+  const [removalRationale, setRemovalRationale] = useState("");
+  const [drafts, setDrafts] = useState<
+    Record<string, {relationship: string; rationale: string}>
+  >({});
 
   async function load() {
     setRefreshing(true);
     try {
       setError("");
-      setData(
-        await api<WorkspaceResponse>(`/decisions/${params.id}`),
-      );
+      const [workspace, eligible] = await Promise.all([
+        api<WorkspaceResponse>(`/decisions/${params.id}`),
+        api<AvailableEvidence[]>(
+          `/decisions/${params.id}/available-evidence`,
+        ),
+      ]);
+      setData(workspace);
+      setAvailable(eligible);
+      try {
+        setHistory(
+          await api<KnowledgeCard[]>(
+            `/decisions/${params.id}/evidence/history`,
+          ),
+        );
+      } catch {
+        setHistory([]);
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -147,6 +186,64 @@ export default function DecisionWorkspace() {
       );
     } finally {
       setUpdatingStatus(false);
+    }
+  }
+
+  async function selectEvidence(card: AvailableEvidence) {
+    const draft = drafts[card.id] || {
+      relationship: "supporting",
+      rationale: "",
+    };
+    if (draft.rationale.trim().length < 3) {
+      setError("Explain why this evidence applies before selecting it.");
+      return;
+    }
+    setEvidenceBusy(true);
+    try {
+      setError("");
+      await api(`/decisions/${params.id}/evidence`, {
+        method: "POST",
+        body: JSON.stringify({
+          knowledge_card_id: card.id,
+          relationship_type: draft.relationship,
+          rationale: draft.rationale,
+        }),
+      });
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to select decision evidence.",
+      );
+    } finally {
+      setEvidenceBusy(false);
+    }
+  }
+
+  async function removeEvidence(evidence: KnowledgeCard) {
+    if (removalRationale.trim().length < 3) {
+      setError("Explain why this evidence should be removed.");
+      return;
+    }
+    setEvidenceBusy(true);
+    try {
+      setError("");
+      await api(`/decisions/${params.id}/evidence/${evidence.id}`, {
+        method: "DELETE",
+        body: JSON.stringify({rationale: removalRationale}),
+      });
+      setRemovingEvidence(undefined);
+      setRemovalRationale("");
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to remove decision evidence.",
+      );
+    } finally {
+      setEvidenceBusy(false);
     }
   }
 
@@ -430,42 +527,189 @@ export default function DecisionWorkspace() {
       ) : null}
 
       {activeTab === "Evidence" ? (
-        <DashboardWidget
-          eyebrow="Governed knowledge"
-          title={`Supporting evidence (${data.evidence.length})`}
-        >
-          {data.evidence.length ? (
+        <section className={styles.evidenceWorkspace}>
+          <DashboardWidget
+            eyebrow="Immutable snapshots"
+            title={`Active decision evidence (${data.evidence.length})`}
+          >
+            {data.evidence.length ? (
+              <div className={styles.evidenceList}>
+                {data.evidence.map((card) => (
+                  <article className={styles.evidenceCard} key={card.id}>
+                    <div className={styles.evidenceHeader}>
+                      <div>
+                        <strong>{card.snapshot_title}</strong>
+                        <span>
+                          {card.snapshot_knowledge_type.replaceAll("_", " ")}
+                        </span>
+                      </div>
+                      <div className={styles.evidenceBadges}>
+                        <span>{card.relationship_type}</span>
+                        <span>
+                          {Math.round(card.snapshot_trust_score * 100)}% trust
+                        </span>
+                      </div>
+                    </div>
+                    <p>{card.snapshot_content}</p>
+                    <p className={styles.rationale}>
+                      <b>Selection rationale:</b> {card.selection_rationale}
+                    </p>
+                    <div className={styles.evidenceMeta}>
+                      <span>
+                        Selected {new Date(card.selected_at).toLocaleString()}
+                      </span>
+                      <button
+                        className={styles.removeEvidence}
+                        disabled={evidenceBusy}
+                        onClick={() => {
+                          setRemovingEvidence(card.id);
+                          setRemovalRationale("");
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {removingEvidence === card.id ? (
+                      <div className={styles.removalControls}>
+                        <input
+                          autoFocus
+                          value={removalRationale}
+                          placeholder="Why should this evidence be removed?"
+                          aria-label={`Removal rationale for ${card.snapshot_title}`}
+                          onChange={(event) =>
+                            setRemovalRationale(event.target.value)
+                          }
+                        />
+                        <button
+                          disabled={evidenceBusy}
+                          onClick={() => void removeEvidence(card)}
+                        >
+                          Confirm removal
+                        </button>
+                        <button
+                          disabled={evidenceBusy}
+                          onClick={() => setRemovingEvidence(undefined)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyPanel}>
+                Select governed knowledge below to establish the evidence
+                supporting this Decision.
+              </div>
+            )}
+          </DashboardWidget>
+
+          <DashboardWidget
+            eyebrow="Available governed knowledge"
+            title={`Eligible evidence (${available.length})`}
+          >
             <div className={styles.evidenceList}>
-              {data.evidence.map((card) => (
-                <article className={styles.evidenceCard} key={card.id}>
-                  <div className={styles.evidenceHeader}>
-                    <div>
-                      <strong>{card.title}</strong>
-                      <span>{card.knowledge_type.replaceAll("_", " ")}</span>
+              {available.map((card) => {
+                const draft = drafts[card.id] || {
+                  relationship: "supporting",
+                  rationale: "",
+                };
+                return (
+                  <article className={styles.evidenceCard} key={card.id}>
+                    <div className={styles.evidenceHeader}>
+                      <div>
+                        <strong>{card.title}</strong>
+                        <span>{card.knowledge_type.replaceAll("_", " ")}</span>
+                      </div>
+                      <div className={styles.evidenceBadges}>
+                        <span>{Math.round(card.trust_score * 100)}% trust</span>
+                        {card.selected ? <span>Selected</span> : null}
+                      </div>
                     </div>
-                    <div className={styles.evidenceBadges}>
-                      <span>{card.approval_status.replaceAll("_", " ")}</span>
-                      <span>{Math.round(card.trust_score * 100)}% trust</span>
-                    </div>
-                  </div>
-                  <p>{card.summary}</p>
-                  <div className={styles.evidenceMeta}>
-                    <span>{card.authority_level.replaceAll("_", " ")}</span>
-                    <span>
-                      {card.ai_usage_allowed
-                        ? "Governed AI eligible"
-                        : "Human review only"}
-                    </span>
-                  </div>
-                </article>
-              ))}
+                    <p>{card.summary}</p>
+                    {!card.selected ? (
+                      <div className={styles.selectionControls}>
+                        <select
+                          value={draft.relationship}
+                          aria-label={`Relationship for ${card.title}`}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [card.id]: {
+                                ...draft,
+                                relationship: event.target.value,
+                              },
+                            }))
+                          }
+                        >
+                          {[
+                            "supporting",
+                            "opposing",
+                            "contextual",
+                            "risk",
+                            "constraint",
+                          ].map((relationship) => (
+                            <option key={relationship} value={relationship}>
+                              {relationship}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={draft.rationale}
+                          placeholder="Why is this evidence relevant?"
+                          aria-label={`Selection rationale for ${card.title}`}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [card.id]: {
+                                ...draft,
+                                rationale: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                        <button
+                          disabled={evidenceBusy}
+                          onClick={() => void selectEvidence(card)}
+                        >
+                          Select evidence
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
-          ) : (
-            <div className={styles.emptyPanel}>
-              No governed evidence is connected to this business concept.
-            </div>
-          )}
-        </DashboardWidget>
+          </DashboardWidget>
+
+          {history.some((item) => item.removed_at) ? (
+            <DashboardWidget
+              eyebrow="Retained history"
+              title="Removed evidence"
+            >
+              <div className={styles.evidenceList}>
+                {history
+                  .filter((item) => item.removed_at)
+                  .map((item) => (
+                    <article className={styles.evidenceCard} key={item.id}>
+                      <div className={styles.evidenceHeader}>
+                        <strong>{item.snapshot_title}</strong>
+                        <div className={styles.evidenceBadges}>
+                          <span>Removed</span>
+                          <span>{item.relationship_type}</span>
+                        </div>
+                      </div>
+                      <p>{item.removal_rationale}</p>
+                      <div className={styles.evidenceMeta}>
+                        Removed {new Date(item.removed_at!).toLocaleString()}
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            </DashboardWidget>
+          ) : null}
+        </section>
       ) : null}
 
       {activeTab === "Timeline" ? (

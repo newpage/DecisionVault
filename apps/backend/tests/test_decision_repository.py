@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -9,6 +10,7 @@ from app.models import (
     BusinessConcept,
     DecisionCase,
     KnowledgeCard,
+    KnowledgeChunk,
     Organization,
     Role,
     Tenant,
@@ -101,20 +103,31 @@ def test_evidence_enforces_tenant_workspace_clearance_and_access_policy():
             AccessPolicyRole(policy_id=policy.id, role_id=allowed_role.id)
         )
 
-        def add_card(title, *, tenant, workspace, concept, rank=20, policy_id=None):
-            db.add(
-                KnowledgeCard(
-                    tenant_id=tenant.id,
-                    workspace_id=workspace.id,
-                    business_concept_id=concept.id,
-                    title=title,
-                    summary=title,
-                    body=title,
-                    classification_rank=rank,
-                    access_policy_id=policy_id,
-                    owner_id=user_a.id if tenant is tenant_a else user_b.id,
-                )
+        def add_card(
+            title,
+            *,
+            tenant,
+            workspace,
+            concept,
+            rank=20,
+            policy_id=None,
+            published=True,
+        ):
+            card = KnowledgeCard(
+                tenant_id=tenant.id,
+                workspace_id=workspace.id,
+                business_concept_id=concept.id,
+                title=title,
+                summary=title,
+                body=title,
+                classification_rank=rank,
+                access_policy_id=policy_id,
+                owner_id=user_a.id if tenant is tenant_a else user_b.id,
+                lifecycle_status="published" if published else "draft",
+                approval_status="approved" if published else "not_submitted",
             )
+            db.add(card)
+            return card
 
         add_card(
             "Allowed restricted",
@@ -122,6 +135,13 @@ def test_evidence_enforces_tenant_workspace_clearance_and_access_policy():
             workspace=workspace_a,
             concept=concept_a,
             policy_id=policy.id,
+        )
+        draft = add_card(
+            "Draft governance",
+            tenant=tenant_a,
+            workspace=workspace_a,
+            concept=concept_a,
+            published=False,
         )
         add_card(
             "Above clearance",
@@ -154,8 +174,36 @@ def test_evidence_enforces_tenant_workspace_clearance_and_access_policy():
             role_ids={allowed_role.id},
         )
 
-        assert denied == []
-        assert [card.title for card in allowed] == ["Allowed restricted"]
+        assert [card.title for card in denied] == ["Draft governance"]
+        assert {card.title for card in allowed} == {
+            "Allowed restricted",
+            "Draft governance",
+        }
+
+        chunk = KnowledgeChunk(
+            tenant_id=tenant_a.id,
+            knowledge_card_id=draft.id,
+            content="Draft content",
+            chunk_index=0,
+            search_text="draft content",
+        )
+        db.add(chunk)
+        db.commit()
+        available = repository.list_available_evidence(
+            tenant_id=tenant_a.id,
+            concept_id=concept_a.id,
+            workspace_id=workspace_a.id,
+            clearance_rank=20,
+            role_ids={allowed_role.id},
+        )
+        assert [card.title for card, _ in available] == [
+            "Allowed restricted"
+        ]
+        assert repository.get_chunk(
+            tenant_id=tenant_b.id,
+            card_id=draft.id,
+            chunk_id=chunk.id,
+        ) is None
 
 
 class FailingSession:
@@ -182,5 +230,19 @@ def test_state_and_audit_transaction_rolls_back_on_failure():
         )
     except RuntimeError:
         pass
+
+    assert session.rolled_back is True
+
+
+def test_snapshot_recalculation_and_audit_roll_back_together():
+    session = FailingSession()
+    repository = DecisionRepository(session)
+
+    with pytest.raises(RuntimeError, match="audit transaction failed"):
+        repository.save_evidence_change(
+            decision=object(),
+            evidence=object(),
+            events=[object()],
+        )
 
     assert session.rolled_back is True

@@ -1,0 +1,16 @@
+services:
+  decisionvault-test-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: decisionvault_test
+      POSTGRES_USER: decisionvault_test
+      POSTGRES_PASSWORD: decisionvault_test
+    ports:
+      - "127.0.0.1:${DV_TEST_DB_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decisionvault_test -d decisionvault_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

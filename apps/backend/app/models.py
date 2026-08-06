@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date, datetime, timezone
 from uuid import uuid4
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 from app.core.database import Base
@@ -204,15 +204,80 @@ class DecisionCase(Base):
     created_by: Mapped[str]=mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    __table_args__=(UniqueConstraint("tenant_id","id"),)
 
 class DecisionEvidence(Base):
     __tablename__="decision_evidence"
     id: Mapped[str]=mapped_column(String(36), primary_key=True, default=uid)
     tenant_id: Mapped[str]=mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
-    decision_case_id: Mapped[str]=mapped_column(ForeignKey("decision_cases.id", ondelete="CASCADE"), index=True)
-    knowledge_card_id: Mapped[str]=mapped_column(ForeignKey("knowledge_cards.id", ondelete="CASCADE"), index=True)
-    chunk_id: Mapped[str]=mapped_column(ForeignKey("knowledge_chunks.id", ondelete="CASCADE"), index=True)
-    score: Mapped[float]=mapped_column(Float)
+    decision_case_id: Mapped[str]=mapped_column(String(36), index=True)
+    knowledge_card_id: Mapped[str]=mapped_column(String(36), index=True)
+    knowledge_chunk_id: Mapped[str|None]=mapped_column(String(36), nullable=True, index=True)
+    source_document_id: Mapped[str|None]=mapped_column(String(36), nullable=True, index=True)
+    relationship_type: Mapped[str]=mapped_column(String(30), index=True)
+    selection_rationale: Mapped[str]=mapped_column(Text)
+    snapshot_title: Mapped[str]=mapped_column(String(240))
+    snapshot_content: Mapped[str]=mapped_column(Text)
+    snapshot_source_filename: Mapped[str]=mapped_column(String(255), default="")
+    snapshot_source_mime_type: Mapped[str]=mapped_column(String(120), default="")
+    snapshot_source_locator: Mapped[str]=mapped_column(String(180), default="")
+    snapshot_knowledge_type: Mapped[str]=mapped_column(String(60))
+    snapshot_authority_level: Mapped[str]=mapped_column(String(60))
+    snapshot_lifecycle_status: Mapped[str]=mapped_column(String(40))
+    snapshot_approval_status: Mapped[str]=mapped_column(String(40))
+    snapshot_classification_rank: Mapped[int]=mapped_column(Integer)
+    snapshot_access_policy_id: Mapped[str|None]=mapped_column(String(36), nullable=True)
+    snapshot_trust_score: Mapped[float]=mapped_column(Float)
+    snapshot_ai_usage_allowed: Mapped[bool]=mapped_column(Boolean)
+    snapshot_card_created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True))
+    snapshot_content_revision: Mapped[str|None]=mapped_column(String(120), nullable=True)
+    snapshot_source_metadata: Mapped[dict]=mapped_column(JSON, default=dict)
+    selected_by: Mapped[str]=mapped_column(ForeignKey("users.id"), index=True)
+    selected_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=utcnow)
+    removed_by: Mapped[str|None]=mapped_column(ForeignKey("users.id"), nullable=True)
+    removed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    removal_rationale: Mapped[str|None]=mapped_column(Text, nullable=True)
+    superseded_by_id: Mapped[str|None]=mapped_column(String(36), nullable=True)
+    __table_args__=(
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_decision_evidence_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_id"],
+            ["decision_evidence.tenant_id", "decision_evidence.id"],
+            name="fk_decision_evidence_tenant_supersession",
+        ),
+        CheckConstraint(
+            "relationship_type IN ('supporting','opposing','contextual','risk','constraint')",
+            name="ck_decision_evidence_relationship_type",
+        ),
+        CheckConstraint(
+            "length(trim(selection_rationale)) > 0",
+            name="ck_decision_evidence_selection_rationale",
+        ),
+        CheckConstraint(
+            "length(trim(snapshot_title)) > 0 AND length(trim(snapshot_content)) > 0",
+            name="ck_decision_evidence_snapshot_content",
+        ),
+        CheckConstraint(
+            "(removed_at IS NULL AND removed_by IS NULL AND removal_rationale IS NULL) OR "
+            "(removed_at IS NOT NULL AND removed_by IS NOT NULL AND length(trim(removal_rationale)) > 0)",
+            name="ck_decision_evidence_removal_metadata",
+        ),
+        Index(
+            "uq_decision_evidence_active_card",
+            "tenant_id",
+            "decision_case_id",
+            "knowledge_card_id",
+            unique=True,
+            postgresql_where=text("removed_at IS NULL"),
+            sqlite_where=text("removed_at IS NULL"),
+        ),
+    )
 
 class AuditEvent(Base):
     __tablename__="audit_events"

@@ -50,6 +50,13 @@ def seed(db: Session):
             "knowledge.submit",
             "knowledge.approve",
             "decision.create",
+            "decision.view",
+            "decision.edit",
+            "decision.transition",
+            "decision.evidence.view",
+            "decision.evidence.select",
+            "decision.evidence.remove",
+            "decision.evidence.history",
             "admin.manage",
         ]
     ]

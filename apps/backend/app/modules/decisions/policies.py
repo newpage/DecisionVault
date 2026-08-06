@@ -7,6 +7,10 @@ VIEW_PERMISSION = "decision.view"
 CREATE_PERMISSION = "decision.create"
 EDIT_PERMISSION = "decision.edit"
 TRANSITION_PERMISSION = "decision.transition"
+EVIDENCE_VIEW_PERMISSION = "decision.evidence.view"
+EVIDENCE_SELECT_PERMISSION = "decision.evidence.select"
+EVIDENCE_REMOVE_PERMISSION = "decision.evidence.remove"
+EVIDENCE_HISTORY_PERMISSION = "decision.evidence.history"
 
 
 @dataclass(frozen=True)
@@ -36,3 +40,19 @@ def authorize_edit(permissions: set[str]) -> None:
 
 def authorize_transition(permissions: set[str]) -> None:
     require_permission(permissions, TRANSITION_PERMISSION)
+
+
+def authorize_evidence_view(permissions: set[str]) -> None:
+    require_permission(permissions, EVIDENCE_VIEW_PERMISSION)
+
+
+def authorize_evidence_select(permissions: set[str]) -> None:
+    require_permission(permissions, EVIDENCE_SELECT_PERMISSION)
+
+
+def authorize_evidence_remove(permissions: set[str]) -> None:
+    require_permission(permissions, EVIDENCE_REMOVE_PERMISSION)
+
+
+def authorize_evidence_history(permissions: set[str]) -> None:
+    require_permission(permissions, EVIDENCE_HISTORY_PERMISSION)

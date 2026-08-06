@@ -2,10 +2,11 @@ from __future__ import annotations
 import re
 
 import httpx
-from sqlalchemy import exists, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.models import AccessPolicyRole, KnowledgeCard, KnowledgeChunk
+from app.models import KnowledgeCard, KnowledgeChunk
+from app.modules.knowledge.policies import authorized_knowledge_filters
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{2,}")
 
@@ -42,18 +43,11 @@ async def retrieve(
     qterms = terms(query)
     filters = [
         KnowledgeChunk.tenant_id == tenant_id,
-        KnowledgeCard.lifecycle_status == "published",
-        KnowledgeCard.approval_status == "approved",
-        KnowledgeCard.ai_usage_allowed.is_(True),
-        KnowledgeCard.classification_rank <= clearance_rank,
-        or_(
-            KnowledgeCard.access_policy_id.is_(None),
-            exists(
-                select(1).where(
-                    AccessPolicyRole.policy_id == KnowledgeCard.access_policy_id,
-                    AccessPolicyRole.role_id.in_(role_ids),
-                )
-            ),
+        *authorized_knowledge_filters(
+            clearance_rank=clearance_rank,
+            role_ids=role_ids,
+            require_published=True,
+            require_ai_eligible=True,
         ),
     ]
     stmt = (

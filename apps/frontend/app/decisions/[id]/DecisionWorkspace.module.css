@@ -42,6 +42,7 @@
 .profile dt{color:var(--dv-subtle);font-size:9px}
 .profile dd{margin:0;color:#d7e2ee;font-size:10px;text-align:right;text-transform:capitalize}
 .evidenceList{display:grid;gap:11px}
+.evidenceWorkspace{display:grid;gap:16px}
 .evidenceCard{padding:15px;border:1px solid #263a53;border-radius:13px;background:#091625}
 .evidenceHeader{display:flex;justify-content:space-between;gap:18px}
 .evidenceHeader>div:first-child{display:grid;gap:4px}
@@ -50,7 +51,14 @@
 .evidenceBadges{display:flex;gap:7px;align-items:flex-start}
 .evidenceBadges span{padding:5px 8px;border-radius:999px;background:#142941;color:#a9c2d5}
 .evidenceCard p{margin:11px 0;color:var(--dv-muted);font-size:10px;line-height:1.5}
+.evidenceCard .rationale{padding:9px;border-left:2px solid var(--dv-cyan);background:#0d1c2e}
 .evidenceMeta{display:flex;justify-content:space-between;gap:12px}
+.removeEvidence{border:0;background:transparent;color:#ef9da4;font-size:9px;cursor:pointer}
+.selectionControls{display:grid;grid-template-columns:140px minmax(180px,1fr) auto;gap:8px;margin-top:12px}
+.removalControls{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:8px;margin-top:12px}
+.selectionControls select,.selectionControls input,.selectionControls button,.removalControls input,.removalControls button{min-height:36px;border:1px solid var(--dv-border-strong);border-radius:9px;background:#102035;color:#c6d3e2;padding:8px 10px;font-size:10px}
+.selectionControls button{background:#153b4a;color:#d9fffb;cursor:pointer}
+.removalControls button{cursor:pointer}.removalControls button:first-of-type{background:#45252b;color:#ffd8dc}
 .timeline{display:grid}
 .timeline article{position:relative;display:grid;grid-template-columns:auto 1fr;gap:12px;padding:0 0 19px}
 .timeline article:not(:last-child)::before{content:"";position:absolute;left:4px;top:12px;bottom:0;width:1px;background:#29415a}
@@ -63,4 +71,4 @@
 .spin{animation:spin .85s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:1150px){.scoreGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.workspaceGrid{grid-template-columns:1fr}}
-@media(max-width:760px){.hero{align-items:flex-start;flex-direction:column}.heroActions{width:100%}.statusSelect{flex:1}.scoreGrid{grid-template-columns:1fr}.evidenceHeader,.evidenceMeta{flex-direction:column}.evidenceBadges{flex-wrap:wrap}}
+@media(max-width:760px){.hero{align-items:flex-start;flex-direction:column}.heroActions{width:100%}.statusSelect{flex:1}.scoreGrid{grid-template-columns:1fr}.evidenceHeader,.evidenceMeta{flex-direction:column}.evidenceBadges{flex-wrap:wrap}.selectionControls,.removalControls{grid-template-columns:1fr}}

@@ -102,7 +102,7 @@ def create_command(**overrides):
     return DecisionCreate.model_validate(values)
 
 
-def test_creation_calculates_readiness_and_writes_audit_atomically():
+def test_creation_starts_without_selected_evidence_and_writes_audit():
     repository = FakeCreationRepository()
     service = DecisionService(repository)
 
@@ -116,10 +116,10 @@ def test_creation_calculates_readiness_and_writes_audit_atomically():
     )
 
     decision, event = repository.saved
-    assert response.readiness_score == 100
+    assert response.readiness_score == 0
     assert decision.tenant_id == "tenant-1"
     assert event.event_type == "DecisionCreated"
-    assert event.details["evidence_count"] == 4
+    assert event.details["evidence_count"] == 0
 
 
 @pytest.mark.parametrize(

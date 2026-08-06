@@ -47,6 +47,22 @@ ollama pull nomic-embed-text
 
 Ollama is optional. Search and deterministic grounded summaries continue to work when it is unavailable.
 
+For isolated PostgreSQL-backed integration tests:
+
+```bash
+docker compose -f compose.test.yml up -d --wait decisionvault-test-db
+cd apps/backend
+TEST_DATABASE_URL=postgresql+psycopg://decisionvault_test:decisionvault_test@127.0.0.1:55432/decisionvault_test \
+  JWT_SECRET=0123456789abcdef0123456789abcdef \
+  DATABASE_URL=sqlite+pysqlite:///:memory: \
+  .venv/bin/python -m pytest -m postgres
+cd ../..
+docker compose -f compose.test.yml down
+```
+
+The test database uses temporary container storage and is separate from the
+normal development database.
+
 ## Product areas included
 
 - Tenant and organization foundation
