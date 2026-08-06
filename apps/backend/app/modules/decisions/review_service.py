@@ -10,6 +10,7 @@ from app.models import (
     DecisionApprovalCondition,
     DecisionCase,
     DecisionReview,
+    DecisionReviewAssignment,
     DecisionReviewEvidence,
     DecisionReviewFinding,
     uid,
@@ -27,8 +28,10 @@ from app.modules.decisions.policies import (
     REVIEW_ASSIGN_PERMISSION,
     REVIEW_MANAGE_PERMISSION,
     REVIEW_PERFORM_PERMISSION,
+    DecisionPermissionError,
     authorize_approval,
     authorize_assigned_reviewer,
+    authorize_evidence_view,
     authorize_review_assign,
     authorize_review_manage,
     authorize_review_view,
@@ -47,11 +50,17 @@ from app.modules.decisions.schemas import (
     ReviewWorkspaceResponse,
 )
 from app.modules.decisions.service import DecisionNotFoundError
+from app.modules.members.service import CandidateEligibilityError, MemberDirectoryService
 
 
 class DecisionReviewService:
-    def __init__(self, repository: DecisionRepository) -> None:
+    def __init__(
+        self,
+        repository: DecisionRepository,
+        member_directory: MemberDirectoryService,
+    ) -> None:
         self._repository = repository
+        self._member_directory = member_directory
 
     def workspace(
         self,
@@ -106,17 +115,31 @@ class DecisionReviewService:
         decision_id: str,
         actor_id: str,
         permissions: set[str],
-        reviewer_id: str,
+        membership_id: str,
         review_type: str,
+        rationale: str,
     ) -> ReviewResponse:
         authorize_review_assign(permissions)
+        authorize_view(permissions)
+        authorize_evidence_view(permissions)
         decision = self._locked_decision(tenant_id, decision_id)
         if decision.status not in {"evidence_collection", "in_review"}:
             raise ReviewStateError("Reviews cannot be assigned in this decision state")
-        if not self._repository.tenant_has_user(
-            tenant_id=tenant_id, user_id=reviewer_id
+        candidate = self._member_directory.require_eligible_reviewer(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
+            membership_id=membership_id,
+        )
+        if review_type == "final_approval" and candidate.user.id == decision.created_by:
+            raise ReviewStateError("A Decision creator cannot perform its final review")
+        if self._repository.has_active_reviewer_type(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
+            membership_id=membership_id,
+            review_type=review_type,
         ):
-            raise DecisionNotFoundError("Reviewer not found")
+            raise ReviewStateError("This reviewer already has an active review of this type")
+        rationale = require_text(rationale, "Assignment rationale")
         now = datetime.now(timezone.utc)
         review = DecisionReview(
             id=uid(),
@@ -126,28 +149,120 @@ class DecisionReviewService:
                 tenant_id=tenant_id, decision_id=decision.id
             ),
             review_type=review_type,
-            assigned_reviewer_id=reviewer_id,
+            assigned_reviewer_membership_id=membership_id,
             assigned_by=actor_id,
         )
-        objects: list = [review]
+        assignment = DecisionReviewAssignment(
+            id=uid(),
+            tenant_id=tenant_id,
+            review_id=review.id,
+            new_membership_id=membership_id,
+            assigned_by=actor_id,
+            rationale=rationale,
+        )
+        objects: list = [review, assignment]
         if decision.status == "in_review":
             self._capture_evidence(review, decision, tenant_id, now, objects)
-        self._save(
-            objects,
-            [
-                self._event(
-                    decision,
-                    actor_id,
-                    "DecisionReviewAssigned",
-                    {
-                        "review_id": review.id,
-                        "review_type": review_type,
-                        "reviewer_id": reviewer_id,
-                    },
-                )
-            ],
-            [review],
+        try:
+            self._save(
+                objects,
+                [
+                    self._event(
+                        decision,
+                        actor_id,
+                        "DecisionReviewAssigned",
+                        {
+                            "review_id": review.id,
+                            "review_type": review_type,
+                            "new_reviewer_membership_id": membership_id,
+                            "responsibility": "decision_reviewer",
+                            "rationale": rationale,
+                        },
+                    )
+                ],
+                [review],
+            )
+        except IntegrityError as exc:
+            raise ReviewStateError("A conflicting review assignment exists") from exc
+        return self._review_response(tenant_id, review)
+
+    def reassign(
+        self,
+        *,
+        tenant_id: str,
+        decision_id: str,
+        review_id: str,
+        actor_id: str,
+        permissions: set[str],
+        membership_id: str,
+        rationale: str,
+    ) -> ReviewResponse:
+        authorize_review_assign(permissions)
+        authorize_view(permissions)
+        authorize_evidence_view(permissions)
+        decision = self._locked_decision(tenant_id, decision_id)
+        review = self._repository.get_review_for_update(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
+            review_id=review_id,
         )
+        if review is None:
+            raise DecisionNotFoundError("Decision review not found")
+        if review.status != "assigned" or review.started_at is not None:
+            raise ReviewStateError("A review cannot be reassigned after work starts")
+        if membership_id == review.assigned_reviewer_membership_id:
+            raise ReviewStateError("The selected member is already assigned")
+        candidate = self._member_directory.require_eligible_reviewer(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
+            membership_id=membership_id,
+        )
+        if review.review_type == "final_approval" and candidate.user.id == decision.created_by:
+            raise ReviewStateError("A Decision creator cannot perform its final review")
+        if self._repository.has_active_reviewer_type(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
+            membership_id=membership_id,
+            review_type=review.review_type,
+            exclude_review_id=review.id,
+        ):
+            raise ReviewStateError("This reviewer already has an active review of this type")
+        rationale = require_text(rationale, "Reassignment rationale")
+        previous = review.assigned_reviewer_membership_id
+        review.assigned_reviewer_membership_id = membership_id
+        review.assigned_by = actor_id
+        review.assigned_at = datetime.now(timezone.utc)
+        assignment = DecisionReviewAssignment(
+            id=uid(),
+            tenant_id=tenant_id,
+            review_id=review.id,
+            previous_membership_id=previous,
+            new_membership_id=membership_id,
+            assigned_by=actor_id,
+            rationale=rationale,
+        )
+        try:
+            self._save(
+                [review, assignment],
+                [
+                    self._event(
+                        decision,
+                        actor_id,
+                        "DecisionReviewerReassigned",
+                        {
+                            "review_id": review.id,
+                            "review_type": review.review_type,
+                            "previous_reviewer_membership_id": previous,
+                            "new_reviewer_membership_id": membership_id,
+                            "responsibility": "decision_reviewer",
+                            "rationale": rationale,
+                        },
+                    )
+                ],
+                [review],
+            )
+        except IntegrityError as exc:
+            raise ReviewStateError("A conflicting review assignment exists") from exc
         return self._review_response(tenant_id, review)
 
     def submit(
@@ -205,10 +320,12 @@ class DecisionReviewService:
         permissions: set[str],
     ) -> ReviewResponse:
         decision, review = self._review(tenant_id, decision_id, review_id)
-        authorize_assigned_reviewer(
+        self._authorize_reviewer(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
             permissions=permissions,
             actor_id=actor_id,
-            reviewer_id=review.assigned_reviewer_id,
+            review=review,
         )
         if (
             decision.status != "in_review"
@@ -243,10 +360,12 @@ class DecisionReviewService:
         command,
     ) -> ReviewFindingResponse:
         decision, review = self._review(tenant_id, decision_id, review_id)
-        authorize_assigned_reviewer(
+        self._authorize_reviewer(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
             permissions=permissions,
             actor_id=actor_id,
-            reviewer_id=review.assigned_reviewer_id,
+            review=review,
         )
         if review.status != "in_progress":
             raise ReviewStateError("Findings require an in-progress review")
@@ -296,10 +415,12 @@ class DecisionReviewService:
         response: str,
     ) -> ReviewFindingResponse:
         decision, review = self._review(tenant_id, decision_id, review_id)
-        authorize_assigned_reviewer(
+        self._authorize_reviewer(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
             permissions=permissions,
             actor_id=actor_id,
-            reviewer_id=review.assigned_reviewer_id,
+            review=review,
         )
         finding = self._repository.get_finding(
             tenant_id=tenant_id, review_id=review.id, finding_id=finding_id
@@ -342,10 +463,12 @@ class DecisionReviewService:
         summary: str,
     ) -> ReviewResponse:
         decision, review = self._review(tenant_id, decision_id, review_id)
-        authorize_assigned_reviewer(
+        self._authorize_reviewer(
+            tenant_id=tenant_id,
+            decision_id=decision.id,
             permissions=permissions,
             actor_id=actor_id,
-            reviewer_id=review.assigned_reviewer_id,
+            review=review,
         )
         if review.status != "in_progress":
             raise ReviewStateError("Only an in-progress review can be completed")
@@ -433,7 +556,12 @@ class DecisionReviewService:
                     decision,
                     actor_id,
                     "DecisionReviewCancelled",
-                    {"review_id": review.id, "rationale": review.cancellation_reason},
+                    {
+                        "review_id": review.id,
+                        "reviewer_membership_id": review.assigned_reviewer_membership_id,
+                        "review_type": review.review_type,
+                        "rationale": review.cancellation_reason,
+                    },
                 )
             ],
             [review],
@@ -455,6 +583,18 @@ class DecisionReviewService:
         decision = self._locked_decision(tenant_id, decision_id)
         validate_approval_action(decision.status, action)
         final_review = self._approval_preconditions(tenant_id, decision)
+        try:
+            reviewer = self._member_directory.require_eligible_reviewer(
+                tenant_id=tenant_id,
+                decision_id=decision.id,
+                membership_id=final_review.assigned_reviewer_membership_id,
+            )
+        except CandidateEligibilityError as exc:
+            raise ReviewStateError("The final reviewer is no longer eligible") from exc
+        if reviewer.user.id == actor_id:
+            raise ReviewStateError(
+                "The final reviewer cannot exercise approval authority"
+            )
         if decision.status == "conditionally_approved":
             open_conditions = [
                 item
@@ -719,13 +859,43 @@ class DecisionReviewService:
     def _review_response(
         self, tenant_id: str, review: DecisionReview
     ) -> ReviewResponse:
+        candidate = self._member_directory.get_tenant_member(
+            tenant_id=tenant_id,
+            membership_id=review.assigned_reviewer_membership_id,
+        )
         return ReviewResponse.model_validate(
             {
                 **review.__dict__,
+                "assigned_reviewer_name": candidate.user.full_name,
+                "assigned_reviewer_email": candidate.user.email,
+                "assigned_reviewer_organization": candidate.organization_name,
                 "evidence_ids": self._repository.list_review_evidence_ids(
                     tenant_id=tenant_id, review_id=review.id
                 ),
             }
+        )
+
+    def _authorize_reviewer(
+        self,
+        *,
+        tenant_id: str,
+        decision_id: str,
+        permissions: set[str],
+        actor_id: str,
+        review: DecisionReview,
+    ) -> None:
+        try:
+            candidate = self._member_directory.require_eligible_reviewer(
+                tenant_id=tenant_id,
+                decision_id=decision_id,
+                membership_id=review.assigned_reviewer_membership_id,
+            )
+        except CandidateEligibilityError as exc:
+            raise DecisionPermissionError(REVIEW_PERFORM_PERMISSION) from exc
+        authorize_assigned_reviewer(
+            permissions=permissions,
+            actor_id=actor_id,
+            reviewer_id=candidate.user.id,
         )
 
     @staticmethod

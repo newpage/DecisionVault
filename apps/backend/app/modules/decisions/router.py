@@ -22,6 +22,7 @@ from app.modules.decisions.schemas import (
     DecisionResponse,
     DecisionWorkspaceResponse,
     ReviewAssignment,
+    ReviewReassignment,
     ReviewCancellation,
     ReviewCompletion,
     ReviewFindingCreate,
@@ -36,6 +37,8 @@ from app.modules.decisions.service import (
     DecisionService,
 )
 from app.modules.decisions.review_service import DecisionReviewService
+from app.modules.members.repository import MemberDirectoryRepository
+from app.modules.members.service import CandidateEligibilityError, MemberDirectoryService
 
 router = APIRouter(tags=["Decision Intelligence"])
 
@@ -45,7 +48,10 @@ def get_service(db: Session = Depends(get_db)) -> DecisionService:
 
 
 def get_review_service(db: Session = Depends(get_db)) -> DecisionReviewService:
-    return DecisionReviewService(DecisionRepository(db))
+    return DecisionReviewService(
+        DecisionRepository(db),
+        MemberDirectoryService(MemberDirectoryRepository(db)),
+    )
 
 
 def map_failure(exc: Exception) -> HTTPException:
@@ -61,6 +67,8 @@ def map_failure(exc: Exception) -> HTTPException:
         return HTTPException(status_code=422, detail=str(exc))
     if isinstance(exc, ReviewStateError):
         return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, CandidateEligibilityError):
+        return HTTPException(status_code=404, detail=str(exc))
     raise exc
 
 
@@ -276,10 +284,46 @@ def assign_review(
             decision_id=decision_id,
             actor_id=principal.user.id,
             permissions=principal.permissions,
-            reviewer_id=body.reviewer_id,
+            membership_id=body.membership_id,
             review_type=body.review_type,
+            rationale=body.rationale,
         )
-    except (DecisionNotFoundError, DecisionPermissionError, ReviewStateError) as exc:
+    except (
+        CandidateEligibilityError,
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        ReviewStateError,
+    ) as exc:
+        raise review_failure(exc) from exc
+
+
+@router.patch(
+    "/decisions/{decision_id}/reviews/{review_id}/assignment",
+    response_model=ReviewResponse,
+)
+def reassign_review(
+    decision_id: str,
+    review_id: str,
+    body: ReviewReassignment,
+    principal: Principal = Depends(get_principal),
+    service: DecisionReviewService = Depends(get_review_service),
+):
+    try:
+        return service.reassign(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            review_id=review_id,
+            actor_id=principal.user.id,
+            permissions=principal.permissions,
+            membership_id=body.membership_id,
+            rationale=body.rationale,
+        )
+    except (
+        CandidateEligibilityError,
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        ReviewStateError,
+    ) as exc:
         raise review_failure(exc) from exc
 
 

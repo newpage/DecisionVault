@@ -112,13 +112,32 @@ type DecisionReview = {
   id: string;
   sequence: number;
   review_type: string;
-  assigned_reviewer_id: string;
+  assigned_reviewer_membership_id: string;
+  assigned_reviewer_name: string;
+  assigned_reviewer_email: string;
+  assigned_reviewer_organization: string;
   status: string;
   conclusion: string | null;
   summary: string;
   freshness_status: string;
   submitted_at: string | null;
   evidence_ids: string[];
+};
+
+type ReviewerCandidate = {
+  membership_id: string;
+  display_name: string;
+  email: string;
+  organization_name: string;
+  role_labels: string[];
+  responsibility: "decision_reviewer";
+};
+
+type ReviewerCandidatePage = {
+  items: ReviewerCandidate[];
+  offset: number;
+  limit: number;
+  total: number;
 };
 
 type ReviewFinding = {
@@ -165,8 +184,13 @@ export default function DecisionWorkspace() {
   const [refreshing, setRefreshing] = useState(false);
   const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspace>();
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [reviewerId, setReviewerId] = useState("");
+  const [reviewerCandidates, setReviewerCandidates] = useState<ReviewerCandidate[]>([]);
+  const [selectedMembershipId, setSelectedMembershipId] = useState("");
+  const [candidateQuery, setCandidateQuery] = useState("");
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [candidateMessage, setCandidateMessage] = useState("");
   const [reviewType, setReviewType] = useState("final_approval");
+  const [assignmentRationale, setAssignmentRationale] = useState("");
   const [reviewRationale, setReviewRationale] = useState("");
   const [findingTitle, setFindingTitle] = useState("");
   const [findingDescription, setFindingDescription] = useState("");
@@ -245,6 +269,29 @@ export default function DecisionWorkspace() {
       );
     } finally {
       setReviewBusy(false);
+    }
+  }
+
+  async function loadReviewerCandidates() {
+    setCandidateLoading(true);
+    setCandidateMessage("");
+    try {
+      const page = await api<ReviewerCandidatePage>(
+        `/decisions/${params.id}/reviewer-candidates?responsibility=decision_reviewer&limit=20&query=${encodeURIComponent(candidateQuery.trim())}`,
+      );
+      setReviewerCandidates(page.items);
+      if (!page.items.length) {
+        setCandidateMessage("No eligible reviewers match this search.");
+      }
+    } catch (caught) {
+      setReviewerCandidates([]);
+      setCandidateMessage(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to load eligible reviewers.",
+      );
+    } finally {
+      setCandidateLoading(false);
     }
   }
 
@@ -467,7 +514,12 @@ export default function DecisionWorkspace() {
           <button
             key={tab}
             className={activeTab === tab ? styles.activeTab : ""}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab);
+              if (tab === "Approvals" && reviewWorkspace?.capabilities.assign) {
+                void loadReviewerCandidates();
+              }
+            }}
           >
             {tab}
           </button>
@@ -809,12 +861,48 @@ export default function DecisionWorkspace() {
                   {reviewWorkspace.capabilities.assign ? (
                     <div className={styles.controlGroup}>
                       <strong>Assign a reviewer</strong>
-                      <input
-                        aria-label="Reviewer user ID"
-                        placeholder="Reviewer user ID"
-                        value={reviewerId}
-                        onChange={(event) => setReviewerId(event.target.value)}
-                      />
+                      <span className={styles.helperText}>
+                        Eligible tenant members with governed Decision and evidence access.
+                      </span>
+                      <div className={styles.candidateSearch}>
+                        <input
+                          aria-label="Search eligible reviewers"
+                          placeholder="Search by name, email, or organization"
+                          value={candidateQuery}
+                          onChange={(event) => setCandidateQuery(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void loadReviewerCandidates();
+                          }}
+                        />
+                        <button
+                          disabled={candidateLoading}
+                          onClick={() => void loadReviewerCandidates()}
+                        >
+                          {candidateLoading ? "Searching…" : "Search"}
+                        </button>
+                      </div>
+                      {reviewerCandidates.length ? (
+                        <div className={styles.candidateList} role="listbox" aria-label="Eligible reviewers">
+                          {reviewerCandidates.map((candidate) => (
+                            <button
+                              key={candidate.membership_id}
+                              type="button"
+                              role="option"
+                              aria-selected={selectedMembershipId === candidate.membership_id}
+                              className={selectedMembershipId === candidate.membership_id ? styles.selectedCandidate : ""}
+                              onClick={() => setSelectedMembershipId(candidate.membership_id)}
+                            >
+                              <strong>{candidate.display_name}</strong>
+                              <span>{candidate.email}</span>
+                              <span>{candidate.organization_name} · {candidate.role_labels.join(", ")}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className={styles.helperText}>
+                          {candidateLoading ? "Loading eligible reviewers…" : candidateMessage || "Search to select an eligible reviewer."}
+                        </span>
+                      )}
                       <select
                         aria-label="Review type"
                         value={reviewType}
@@ -825,12 +913,19 @@ export default function DecisionWorkspace() {
                         <option value="compliance">Compliance</option>
                         <option value="final_approval">Final approval</option>
                       </select>
+                      <textarea
+                        aria-label="Assignment rationale"
+                        placeholder="Why is this member appropriate for this review?"
+                        value={assignmentRationale}
+                        onChange={(event) => setAssignmentRationale(event.target.value)}
+                      />
                       <button
-                        disabled={reviewBusy || !reviewerId.trim()}
+                        disabled={reviewBusy || !selectedMembershipId || assignmentRationale.trim().length < 3}
                         onClick={() =>
                           void reviewAction("/reviews", {
-                            reviewer_id: reviewerId.trim(),
+                            membership_id: selectedMembershipId,
                             review_type: reviewType,
+                            rationale: assignmentRationale,
                           })
                         }
                       >
@@ -933,7 +1028,10 @@ export default function DecisionWorkspace() {
                           <strong>
                             Review {review.sequence}: {review.review_type.replaceAll("_", " ")}
                           </strong>
-                          <span>Reviewer {review.assigned_reviewer_id}</span>
+                          <span>
+                            Reviewer {review.assigned_reviewer_name} · {review.assigned_reviewer_organization}
+                          </span>
+                          <span>{review.assigned_reviewer_email}</span>
                         </div>
                         <div className={styles.evidenceBadges}>
                           <span>{review.status.replaceAll("_", " ")}</span>
@@ -942,6 +1040,18 @@ export default function DecisionWorkspace() {
                         </div>
                       </div>
                       {review.summary ? <p>{review.summary}</p> : null}
+                      {reviewWorkspace.capabilities.assign && review.status === "assigned" ? (
+                        <button
+                          disabled={reviewBusy || !selectedMembershipId || assignmentRationale.trim().length < 3 || selectedMembershipId === review.assigned_reviewer_membership_id}
+                          onClick={() => void reviewAction(
+                            `/reviews/${review.id}/assignment`,
+                            {membership_id: selectedMembershipId, rationale: assignmentRationale},
+                            "PATCH",
+                          )}
+                        >
+                          Reassign selected reviewer
+                        </button>
+                      ) : null}
                       {reviewWorkspace.capabilities.perform &&
                       review.status === "assigned" &&
                       review.submitted_at ? (

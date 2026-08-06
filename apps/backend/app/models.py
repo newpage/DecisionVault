@@ -79,7 +79,11 @@ class Membership(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     clearance_rank: Mapped[int] = mapped_column(Integer, default=20)
-    __table_args__ = (UniqueConstraint("tenant_id", "user_id"),)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint("tenant_id", "user_id"),
+    )
 
 
 class Role(Base):
@@ -459,8 +463,8 @@ class DecisionReview(Base):
     decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
     sequence: Mapped[int] = mapped_column(Integer)
     review_type: Mapped[str] = mapped_column(String(40), index=True)
-    assigned_reviewer_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"), index=True
+    assigned_reviewer_membership_id: Mapped[str] = mapped_column(
+        String(36), index=True
     )
     assigned_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     assigned_at: Mapped[datetime] = mapped_column(
@@ -509,6 +513,11 @@ class DecisionReview(Base):
             ondelete="CASCADE",
             name="fk_decision_review_tenant_decision",
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "assigned_reviewer_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_decision_review_tenant_reviewer_membership",
+        ),
         CheckConstraint(
             "review_type IN ('business','risk','compliance','final_approval')",
             name="ck_decision_review_type",
@@ -532,6 +541,57 @@ class DecisionReview(Base):
         CheckConstraint(
             "(status != 'cancelled') OR (cancelled_by IS NOT NULL AND cancelled_at IS NOT NULL AND length(trim(cancellation_reason)) > 0)",
             name="ck_decision_review_cancellation",
+        ),
+        Index(
+            "uq_active_decision_reviewer_type",
+            "tenant_id",
+            "decision_case_id",
+            "assigned_reviewer_membership_id",
+            "review_type",
+            unique=True,
+            postgresql_where=text("status IN ('assigned','in_progress')"),
+            sqlite_where=text("status IN ('assigned','in_progress')"),
+        ),
+    )
+
+
+class DecisionReviewAssignment(Base):
+    __tablename__ = "decision_review_assignments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    review_id: Mapped[str] = mapped_column(String(36), index=True)
+    previous_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    new_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    assigned_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    rationale: Mapped[str] = mapped_column(Text)
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "review_id"],
+            ["decision_reviews.tenant_id", "decision_reviews.id"],
+            ondelete="CASCADE",
+            name="fk_review_assignment_tenant_review",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "previous_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_review_assignment_tenant_previous_membership",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "new_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_review_assignment_tenant_new_membership",
+        ),
+        CheckConstraint(
+            "length(trim(rationale)) > 0",
+            name="ck_review_assignment_rationale",
         ),
     )
 

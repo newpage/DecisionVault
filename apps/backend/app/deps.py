@@ -65,6 +65,7 @@ def get_principal(
         or not session
         or session.revoked_at
         or not membership
+        or not membership.is_active
     ):
         raise HTTPException(401, "Session is not active")
     role_rows = db.execute(

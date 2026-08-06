@@ -134,8 +134,14 @@ class EvidenceMutationResponse(BaseModel):
 
 
 class ReviewAssignment(BaseModel):
-    reviewer_id: str
+    membership_id: str
     review_type: Literal["business", "risk", "compliance", "final_approval"]
+    rationale: str = Field(min_length=3, max_length=2000)
+
+
+class ReviewReassignment(BaseModel):
+    membership_id: str
+    rationale: str = Field(min_length=3, max_length=2000)
 
 
 class ReviewResponse(BaseModel):
@@ -144,7 +150,10 @@ class ReviewResponse(BaseModel):
     decision_case_id: str
     sequence: int
     review_type: str
-    assigned_reviewer_id: str
+    assigned_reviewer_membership_id: str
+    assigned_reviewer_name: str
+    assigned_reviewer_email: str
+    assigned_reviewer_organization: str
     assigned_by: str
     assigned_at: datetime
     status: str

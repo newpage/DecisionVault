@@ -11,13 +11,13 @@ from app.models import (
     DecisionApprovalAction,
     DecisionApprovalCondition,
     DecisionReview,
+    DecisionReviewAssignment,
     DecisionReviewEvidence,
     DecisionReviewFinding,
     KnowledgeCard,
     KnowledgeChunk,
     KnowledgeEvidence,
     SourceDocument,
-    Membership,
     Workspace,
 )
 from app.modules.knowledge.policies import authorized_knowledge_filters
@@ -277,17 +277,6 @@ class DecisionRepository:
             ).all()
         )
 
-    def tenant_has_user(self, *, tenant_id: str, user_id: str) -> bool:
-        return (
-            self._db.scalar(
-                select(Membership.id).where(
-                    Membership.tenant_id == tenant_id,
-                    Membership.user_id == user_id,
-                )
-            )
-            is not None
-        )
-
     def next_review_sequence(self, *, tenant_id: str, decision_id: str) -> int:
         current = self._db.scalar(
             select(func.max(DecisionReview.sequence)).where(
@@ -296,6 +285,40 @@ class DecisionRepository:
             )
         )
         return int(current or 0) + 1
+
+    def has_active_reviewer_type(
+        self,
+        *,
+        tenant_id: str,
+        decision_id: str,
+        membership_id: str,
+        review_type: str,
+        exclude_review_id: str | None = None,
+    ) -> bool:
+        statement = select(DecisionReview.id).where(
+            DecisionReview.tenant_id == tenant_id,
+            DecisionReview.decision_case_id == decision_id,
+            DecisionReview.assigned_reviewer_membership_id == membership_id,
+            DecisionReview.review_type == review_type,
+            DecisionReview.status.in_({"assigned", "in_progress"}),
+        )
+        if exclude_review_id:
+            statement = statement.where(DecisionReview.id != exclude_review_id)
+        return self._db.scalar(statement) is not None
+
+    def list_assignment_history(
+        self, *, tenant_id: str, review_id: str
+    ) -> list[DecisionReviewAssignment]:
+        return list(
+            self._db.scalars(
+                select(DecisionReviewAssignment)
+                .where(
+                    DecisionReviewAssignment.tenant_id == tenant_id,
+                    DecisionReviewAssignment.review_id == review_id,
+                )
+                .order_by(DecisionReviewAssignment.assigned_at)
+            ).all()
+        )
 
     def list_reviews(self, *, tenant_id: str, decision_id: str) -> list[DecisionReview]:
         return list(

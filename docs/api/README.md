@@ -10,19 +10,16 @@ The browser uses `NEXT_PUBLIC_API_URL`. Local and server values differ: the Linu
 
 Decision endpoints require explicit permissions in addition to authentication:
 `decision.view` for list/workspace reads, `decision.create` for creation, and
-`decision.transition` for lifecycle changes. Tenant-owned workspace, Business
+review and approval permissions for lifecycle changes. Tenant-owned workspace, Business
 Concept, Decision, and Knowledge Card identifiers are resolved within the
 authenticated tenant; absent and foreign-tenant references both return 404.
 Decision permissions are seed data; startup seeding does not backfill an
 existing populated database.
 
-The existing endpoints remain `/decisions`, `/decisions/{decision_id}`, and
-`PATCH /decisions/{decision_id}/status`. Status mutation is an explicit
-transition operation and now rejects same-state, unsupported, and disallowed
-transitions with 409. The request accepts `status` and an optional `rationale`.
-The Decision Workspace response adds `workspace_summary.allowed_transitions`
-so clients can offer only valid next states. Decision creation now returns 201
-instead of the previous implicit 200.
+The generic Decision status mutation endpoint is not exposed. Review and
+approval lifecycle changes use explicit assignment, submission, review,
+finding, return, approval, conditional-approval, rejection, and condition
+endpoints. Decision creation returns 201.
 
 The supported lifecycle is:
 
@@ -32,6 +29,35 @@ in_review -> conditionally_approved | approved | rejected
 conditionally_approved -> approved | rejected | closed
 approved | rejected -> closed
 ```
+
+### Reviewer candidates and membership identity
+
+```text
+GET   /decisions/{decision_id}/reviewer-candidates
+POST  /decisions/{decision_id}/reviews
+PATCH /decisions/{decision_id}/reviews/{review_id}/assignment
+```
+
+Candidate discovery requires `decision.view`, `decision.evidence.view`, and
+`decision.review.assign`. It accepts `responsibility=decision_reviewer`, a
+bounded case-insensitive `query`, `offset`, and `limit` (maximum 50). Results
+contain membership ID, display name, email, organization, relevant role labels,
+and responsibility; authentication and unrelated role metadata are never
+returned.
+
+Assignments use tenant membership rather than a global user ID. Initial
+assignment requires membership ID, review type, and rationale. Reassignment
+requires membership ID and rationale and is rejected after review work starts.
+The backend revalidates active membership/user status, effective Decision and
+evidence permissions, clearance, access-policy roles, tenant ownership, and
+separation of duties for every assignment command. Foreign membership and
+Decision identifiers are non-disclosing.
+
+Directory and review-assignment permissions currently seeded for the tenant
+administrator are `decision.review.view`, `decision.review.assign`,
+`decision.review.perform`, and `decision.review.manage`; decision authority is
+separate through `decision.approve`, `decision.conditionally_approve`,
+`decision.reject`, and `decision.return_for_changes`.
 
 ### Governed Decision evidence
 

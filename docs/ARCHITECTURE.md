@@ -76,6 +76,16 @@ Readiness and recommendations use active snapshots only. Removal retains the
 snapshot and records actor, timestamp, and rationale; selection/removal,
 recalculation, and audit events commit atomically.
 
+Tenant-member discovery is owned by the focused `app/modules/members`
+boundary. A `User` remains a global platform identity, while `Membership` is
+the active, tenant-scoped identity used for governed reviewer assignment.
+Candidate discovery filters the authenticated tenant before search and returns
+only active members whose effective permissions, clearance, and access-policy
+roles permit them to view the Decision and all active evidence. Review
+assignment stores a tenant-composite membership reference, revalidates
+eligibility when the command executes, and retains assignment/reassignment
+history with its audit event in the same transaction.
+
 ## Deployment topology
 
 Source changes are built, tested, reviewed, and committed on the Mac workstation, pushed to GitHub, then pulled and deployed on the Linux server. On the server, `scripts/dv` combines the base and server Compose files. Backend and frontend ports bind to `127.0.0.1` only; PostgreSQL and the worker have no published ports. Apache is the public HTTPS proxy.

@@ -79,6 +79,12 @@
 .reviewHeader>div:first-child{display:grid;gap:5px}
 .reviewCard span{color:var(--dv-subtle);font-size:9px;text-transform:capitalize}
 .reviewCard p{color:var(--dv-muted);font-size:10px;line-height:1.5}
+.helperText{color:var(--dv-subtle);font-size:9px;line-height:1.45}
+.candidateSearch{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.candidateList{display:grid;gap:7px;max-height:230px;overflow:auto;padding-right:3px}
+.candidateList button{display:grid;gap:3px;text-align:left;background:#0d1c2e;border-color:#263f58}
+.candidateList button span{color:var(--dv-subtle);font-size:8px}
+.candidateList .selectedCandidate{border-color:var(--dv-cyan);background:#12343f;box-shadow:inset 3px 0 0 var(--dv-cyan)}
 .error{margin-bottom:16px;padding:13px 15px;border:1px solid #67393f;border-radius:12px;background:#321d24;color:#ffb7bd;font-size:11px}
 .loading{min-height:60vh;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--dv-muted)}
 .spin{animation:spin .85s linear infinite}
