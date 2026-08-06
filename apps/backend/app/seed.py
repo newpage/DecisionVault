@@ -76,6 +76,9 @@ def seed(db: Session):
             "decision.precedent.manage",
             "decision.lesson.adopt",
             "decision.lesson.reject",
+            "decision.learning.view",
+            "decision.learning.evaluate",
+            "decision.learning.manage",
             "admin.manage",
         ]
     ]

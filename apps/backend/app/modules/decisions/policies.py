@@ -30,6 +30,9 @@ PRECEDENT_VIEW_PERMISSION = "decision.precedent.view"
 PRECEDENT_MANAGE_PERMISSION = "decision.precedent.manage"
 LESSON_ADOPT_PERMISSION = "decision.lesson.adopt"
 LESSON_REJECT_PERMISSION = "decision.lesson.reject"
+LEARNING_VIEW_PERMISSION = "decision.learning.view"
+LEARNING_EVALUATE_PERMISSION = "decision.learning.evaluate"
+LEARNING_MANAGE_PERMISSION = "decision.learning.manage"
 
 
 @dataclass(frozen=True)

@@ -167,3 +167,21 @@ Business-state conflicts return 409 and inaccessible resources return 404.
 Revision changes, review staleness, and audits commit with the business record.
 Snapshot DTOs do not consult restricted live lesson content. The new tables
 require a clean pre-release database reset; no migration is supplied.
+
+### Precedent effectiveness and Decision learning
+
+```text
+GET  /decisions/{decision_id}/learning
+POST /decisions/{decision_id}/precedent-references/{reference_id}/evaluation
+POST /decisions/{decision_id}/precedent-references/{reference_id}/evaluation/supersede
+POST /decisions/{decision_id}/lesson-adoptions/{adoption_id}/evaluation
+POST /decisions/{decision_id}/lesson-adoptions/{adoption_id}/evaluation/supersede
+GET  /decision-memory/{historical_decision_id}/usage
+```
+
+Reads require `decision.learning.view` and `decision.outcome.view`; evaluation
+requires `decision.learning.evaluate`, and correction requires
+`decision.learning.manage`. A completed effectiveness assessment and active
+evaluator Membership are required. Aggregates include only visible referencing
+Decisions. Evaluation and audit commit atomically and do not change reviews,
+recommendations, similarity weights, or rankings.

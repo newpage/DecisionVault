@@ -36,6 +36,9 @@ from app.modules.decisions.precedent_schemas import (
     PrecedentReferenceResponse,
     PrecedentRemove,
 )
+from app.modules.decisions.learning_repository import DecisionLearningRepository
+from app.modules.decisions.learning_service import DecisionLearningService, LearningStateError
+from app.modules.decisions.learning_schemas import DecisionLearningResponse, EvaluationSupersede, HistoricalUsageResponse, LessonEvaluationCreate, LessonEvaluationResponse, PrecedentEvaluationCreate, PrecedentEvaluationResponse
 from app.modules.decisions.schemas import (
     ApprovalConditionResponse,
     ApprovalMutationResponse,
@@ -112,6 +115,10 @@ def get_precedent_service(db: Session = Depends(get_db)) -> DecisionPrecedentSer
     )
 
 
+def get_learning_service(db: Session = Depends(get_db)) -> DecisionLearningService:
+    return DecisionLearningService(DecisionLearningRepository(db), DecisionMemoryRepository(db))
+
+
 def map_failure(exc: Exception) -> HTTPException:
     if isinstance(exc, DecisionNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -130,6 +137,8 @@ def map_failure(exc: Exception) -> HTTPException:
     if isinstance(exc, OutcomeStateError):
         return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, PrecedentStateError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, LearningStateError):
         return HTTPException(status_code=409, detail=str(exc))
     raise exc
 
@@ -355,6 +364,54 @@ def supersede_lesson_adoption(
             rationale=body.rationale,
         )
     except (DecisionNotFoundError, DecisionPermissionError, PrecedentStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get("/decisions/{decision_id}/learning", response_model=DecisionLearningResponse)
+def get_decision_learning(decision_id: str, principal: Principal = Depends(get_principal), service: DecisionLearningService = Depends(get_learning_service)):
+    try:
+        return service.workspace(tenant_id=principal.tenant_id, decision_id=decision_id, clearance_rank=principal.membership.clearance_rank, role_ids=principal.role_ids, permissions=principal.permissions)
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post("/decisions/{decision_id}/precedent-references/{reference_id}/evaluation", response_model=PrecedentEvaluationResponse, status_code=201)
+def evaluate_precedent(decision_id: str, reference_id: str, body: PrecedentEvaluationCreate, principal: Principal = Depends(get_principal), service: DecisionLearningService = Depends(get_learning_service)):
+    try:
+        return service.evaluate_precedent(tenant_id=principal.tenant_id, decision_id=decision_id, reference_id=reference_id, membership_id=principal.membership.id, actor_id=principal.user.id, clearance_rank=principal.membership.clearance_rank, role_ids=principal.role_ids, permissions=principal.permissions, command=body)
+    except (DecisionNotFoundError, DecisionPermissionError, DecisionConflictError, LearningStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post("/decisions/{decision_id}/lesson-adoptions/{adoption_id}/evaluation", response_model=LessonEvaluationResponse, status_code=201)
+def evaluate_lesson(decision_id: str, adoption_id: str, body: LessonEvaluationCreate, principal: Principal = Depends(get_principal), service: DecisionLearningService = Depends(get_learning_service)):
+    try:
+        return service.evaluate_lesson(tenant_id=principal.tenant_id, decision_id=decision_id, adoption_id=adoption_id, membership_id=principal.membership.id, actor_id=principal.user.id, clearance_rank=principal.membership.clearance_rank, role_ids=principal.role_ids, permissions=principal.permissions, command=body)
+    except (DecisionNotFoundError, DecisionPermissionError, DecisionConflictError, LearningStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get("/decision-memory/{historical_decision_id}/usage", response_model=HistoricalUsageResponse)
+def historical_usage(historical_decision_id: str, principal: Principal = Depends(get_principal), service: DecisionLearningService = Depends(get_learning_service)):
+    try:
+        return service.usage(tenant_id=principal.tenant_id, historical_decision_id=historical_decision_id, clearance_rank=principal.membership.clearance_rank, role_ids=principal.role_ids, permissions=principal.permissions)
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post("/decisions/{decision_id}/precedent-references/{reference_id}/evaluation/supersede", response_model=PrecedentEvaluationResponse)
+def supersede_precedent_evaluation(decision_id: str, reference_id: str, body: EvaluationSupersede, principal: Principal = Depends(get_principal), service: DecisionLearningService = Depends(get_learning_service)):
+    try:
+        return service.supersede_precedent(tenant_id=principal.tenant_id, decision_id=decision_id, reference_id=reference_id, membership_id=principal.membership.id, actor_id=principal.user.id, clearance_rank=principal.membership.clearance_rank, role_ids=principal.role_ids, permissions=principal.permissions, command=body)
+    except (DecisionNotFoundError, DecisionPermissionError, DecisionConflictError, LearningStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post("/decisions/{decision_id}/lesson-adoptions/{adoption_id}/evaluation/supersede", response_model=LessonEvaluationResponse)
+def supersede_lesson_evaluation(decision_id: str, adoption_id: str, body: EvaluationSupersede, principal: Principal = Depends(get_principal), service: DecisionLearningService = Depends(get_learning_service)):
+    try:
+        return service.supersede_lesson(tenant_id=principal.tenant_id, decision_id=decision_id, adoption_id=adoption_id, membership_id=principal.membership.id, actor_id=principal.user.id, clearance_rank=principal.membership.clearance_rank, role_ids=principal.role_ids, permissions=principal.permissions, command=body)
+    except (DecisionNotFoundError, DecisionPermissionError, DecisionConflictError, LearningStateError) as exc:
         raise map_failure(exc) from exc
 
 

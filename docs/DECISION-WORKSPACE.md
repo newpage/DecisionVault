@@ -101,3 +101,11 @@ increment the input revision, and make completed reviews stale.
 - Run backend tests and the frontend production build.
 
 The sprint-level manual checks currently maintained by the repository are in `QA.md`.
+
+After a completed effectiveness assessment, authorized users may evaluate a
+precedent as highly useful, useful, neutral, misleading, harmful, inconclusive,
+or too early. Adopted lessons may be beneficial, neutral, ineffective, harmful,
+not applied, or inconclusive. Rejected lessons retain the original choice and
+may later be judged appropriate, neutral, potentially costly, or inconclusive.
+Similarity is not effectiveness; effectiveness is not usefulness; association
+is not causality.
