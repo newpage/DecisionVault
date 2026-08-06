@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.api import auth, dashboard, intelligence, knowledge, workspaces
 from app.modules.business_concepts.router import router as business_concepts_router
+from app.modules.decisions.router import router as decisions_router
 from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
 from app.seed import seed
@@ -37,6 +38,7 @@ for router in [
     intelligence.router,
     dashboard.router,
     business_concepts_router,
+    decisions_router,
 ]:
     app.include_router(router, prefix="/api/v1")
 

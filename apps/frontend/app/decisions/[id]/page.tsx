@@ -87,6 +87,7 @@ type WorkspaceResponse = {
       string,
       {points: number; possible: number; count: number}
     >;
+    allowed_transitions: string[];
   };
 };
 
@@ -233,17 +234,14 @@ export default function DecisionWorkspace() {
             className={styles.statusSelect}
             aria-label="Decision status"
           >
-            <option value="draft">Draft</option>
-            <option value="evidence_collection">
-              Evidence Collection
+            <option value={decision.status}>
+              {decision.status.replaceAll("_", " ")}
             </option>
-            <option value="in_review">In Review</option>
-            <option value="conditionally_approved">
-              Conditionally Approved
-            </option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="closed">Closed</option>
+            {summary.allowed_transitions.map((status) => (
+              <option value={status} key={status}>
+                {status.replaceAll("_", " ")}
+              </option>
+            ))}
           </select>
         </div>
       </header>

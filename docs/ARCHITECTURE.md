@@ -60,6 +60,19 @@ There is no confirmed PostgreSQL row-level-security policy in the repository. Ev
 
 FastAPI mounts application routers under `/api/v1`; `/health` is outside that prefix. The Next.js client reads `NEXT_PUBLIC_API_URL`, attaches the bearer token from browser local storage, and redirects to login on HTTP 401. See [API overview](api/README.md) and [UI notes](ui/README.md).
 
+Decision Intelligence is a backend module under `app/modules/decisions`.
+Its router translates HTTP requests, the application service coordinates
+authorization and domain operations, the tenant-aware repository owns
+persistence and evidence queries, and separate lifecycle and scoring modules
+contain deterministic rules. Decision creation and lifecycle transitions write
+their audit event in the same database transaction as the decision state.
+
+Decision evidence is constrained by the authenticated tenant, Decision
+workspace, Business Concept, membership clearance, and Knowledge Card access
+policy before it is displayed or included in readiness calculations. Evidence
+snapshots remain identifier-and-score based; immutable content snapshotting is
+not yet implemented.
+
 ## Deployment topology
 
 Source changes are built, tested, reviewed, and committed on the Mac workstation, pushed to GitHub, then pulled and deployed on the Linux server. On the server, `scripts/dv` combines the base and server Compose files. Backend and frontend ports bind to `127.0.0.1` only; PostgreSQL and the worker have no published ports. Apache is the public HTTPS proxy.
@@ -69,4 +82,3 @@ Executable defaults are backend `127.0.0.1:8200` and frontend `127.0.0.1:3200`, 
 ## Current lifecycle constraints
 
 The accepted pre-release policy permits breaking schema and API changes and assumes fresh databases between breaking releases. Startup currently creates the vector extension and tables directly with SQLAlchemy and seeds demo data; no migration framework was found. See [ADR-0001](adr/ADR-0001-pre-release-breaking-changes.md).
-

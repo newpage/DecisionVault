@@ -6,3 +6,29 @@ Protected endpoints use `Authorization: Bearer <JWT>`. The authenticated session
 
 The browser uses `NEXT_PUBLIC_API_URL`. Local and server values differ: the Linux Apache deployment uses `/api/v1`, while direct local access must match the backend host port actually selected by Compose.
 
+## Decision Intelligence
+
+Decision endpoints require explicit permissions in addition to authentication:
+`decision.view` for list/workspace reads, `decision.create` for creation, and
+`decision.transition` for lifecycle changes. Tenant-owned workspace, Business
+Concept, Decision, and Knowledge Card identifiers are resolved within the
+authenticated tenant; absent and foreign-tenant references both return 404.
+No tables changed, but the new permissions are seed data; existing pre-release
+databases must be refreshed because startup seeding does not backfill them.
+
+The existing endpoints remain `/decisions`, `/decisions/{decision_id}`, and
+`PATCH /decisions/{decision_id}/status`. Status mutation is an explicit
+transition operation and now rejects same-state, unsupported, and disallowed
+transitions with 409. The request accepts `status` and an optional `rationale`.
+The Decision Workspace response adds `workspace_summary.allowed_transitions`
+so clients can offer only valid next states. Decision creation now returns 201
+instead of the previous implicit 200.
+
+The supported lifecycle is:
+
+```text
+draft -> evidence_collection -> in_review
+in_review -> conditionally_approved | approved | rejected
+conditionally_approved -> approved | rejected | closed
+approved | rejected -> closed
+```
