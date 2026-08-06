@@ -12,6 +12,7 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -463,9 +464,7 @@ class DecisionReview(Base):
     decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
     sequence: Mapped[int] = mapped_column(Integer)
     review_type: Mapped[str] = mapped_column(String(40), index=True)
-    assigned_reviewer_membership_id: Mapped[str] = mapped_column(
-        String(36), index=True
-    )
+    assigned_reviewer_membership_id: Mapped[str] = mapped_column(String(36), index=True)
     assigned_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     assigned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
@@ -762,6 +761,340 @@ class DecisionApprovalCondition(Base):
             "(status = 'open' AND satisfied_by IS NULL AND satisfied_at IS NULL) OR (status IN ('satisfied','waived') AND satisfied_by IS NOT NULL AND satisfied_at IS NOT NULL AND length(trim(satisfaction_response)) > 0)",
             name="ck_approval_condition_satisfaction",
         ),
+    )
+
+
+class DecisionExpectedOutcome(Base):
+    __tablename__ = "decision_expected_outcomes"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    description: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(60), default="business")
+    measurement_type: Mapped[str] = mapped_column(String(30), index=True)
+    baseline_value: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    target_value: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    target_min_value: Mapped[float | None] = mapped_column(
+        Numeric(20, 6), nullable=True
+    )
+    target_max_value: Mapped[float | None] = mapped_column(
+        Numeric(20, 6), nullable=True
+    )
+    target_boolean: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    unit: Mapped[str] = mapped_column(String(60), default="")
+    target_direction: Mapped[str] = mapped_column(String(30))
+    target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    evaluation_window_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    responsible_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, index=True
+    )
+    weight: Mapped[float] = mapped_column(Numeric(8, 4), default=1)
+    is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
+    success_criteria: Mapped[str] = mapped_column(Text)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    amended_from_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    amendment_rationale: Mapped[str] = mapped_column(Text, default="")
+    frozen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_by_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_expected_outcome_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "responsible_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_expected_outcome_tenant_responsible",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_expected_outcome_tenant_creator",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "amended_from_id"],
+            ["decision_expected_outcomes.tenant_id", "decision_expected_outcomes.id"],
+            name="fk_expected_outcome_tenant_amendment",
+        ),
+        CheckConstraint(
+            "measurement_type IN ('numeric','percentage','currency','duration','boolean','milestone','qualitative')",
+            name="ck_expected_outcome_measurement_type",
+        ),
+        CheckConstraint(
+            "target_direction IN ('increase','decrease','range','exact','complete','maintain')",
+            name="ck_expected_outcome_target_direction",
+        ),
+        CheckConstraint(
+            "status IN ('active','superseded')", name="ck_expected_outcome_status"
+        ),
+        CheckConstraint("weight > 0", name="ck_expected_outcome_weight"),
+        CheckConstraint(
+            "evaluation_window_days IS NULL OR evaluation_window_days > 0",
+            name="ck_expected_outcome_evaluation_window",
+        ),
+        CheckConstraint(
+            "target_direction != 'range' OR (target_min_value IS NOT NULL AND target_max_value IS NOT NULL AND target_min_value <= target_max_value)",
+            name="ck_expected_outcome_range",
+        ),
+        CheckConstraint(
+            "length(trim(title)) > 0 AND length(trim(description)) > 0 AND length(trim(success_criteria)) > 0",
+            name="ck_expected_outcome_required_text",
+        ),
+        Index(
+            "uq_active_expected_outcome_title",
+            "tenant_id",
+            "decision_case_id",
+            "title",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+            sqlite_where=text("status = 'active'"),
+        ),
+    )
+
+
+class DecisionOutcomeObservation(Base):
+    __tablename__ = "decision_outcome_observations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
+    expected_outcome_id: Mapped[str] = mapped_column(String(36), index=True)
+    observation_date: Mapped[date] = mapped_column(Date)
+    numeric_value: Mapped[float | None] = mapped_column(Numeric(20, 6), nullable=True)
+    boolean_value: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    observed_status: Mapped[str] = mapped_column(String(30), default="reported")
+    narrative: Mapped[str] = mapped_column(Text, default="")
+    provenance: Mapped[str] = mapped_column(String(40))
+    source_reference: Mapped[str] = mapped_column(String(500), default="")
+    decision_evidence_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    recorded_by_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    verification_status: Mapped[str] = mapped_column(
+        String(20), default="unverified", index=True
+    )
+    verified_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    verification_rationale: Mapped[str] = mapped_column(Text, default="")
+    superseded_by_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    supersession_rationale: Mapped[str] = mapped_column(Text, default="")
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_observation_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "expected_outcome_id"],
+            ["decision_expected_outcomes.tenant_id", "decision_expected_outcomes.id"],
+            ondelete="CASCADE",
+            name="fk_observation_tenant_outcome",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_evidence_id"],
+            ["decision_evidence.tenant_id", "decision_evidence.id"],
+            name="fk_observation_tenant_evidence",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "recorded_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_observation_tenant_recorder",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "verified_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_observation_tenant_verifier",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_id"],
+            [
+                "decision_outcome_observations.tenant_id",
+                "decision_outcome_observations.id",
+            ],
+            name="fk_observation_tenant_supersession",
+        ),
+        CheckConstraint(
+            "observed_status IN ('reported','achieved','not_achieved','in_progress','inconclusive')",
+            name="ck_observation_status",
+        ),
+        CheckConstraint(
+            "provenance IN ('manually_reported','verified_business_record','documented_evidence')",
+            name="ck_observation_provenance",
+        ),
+        CheckConstraint(
+            "verification_status IN ('unverified','verified','superseded')",
+            name="ck_observation_verification_status",
+        ),
+        CheckConstraint(
+            "(verification_status = 'verified' AND verified_by_membership_id IS NOT NULL AND verified_at IS NOT NULL AND length(trim(verification_rationale)) > 0) OR verification_status != 'verified'",
+            name="ck_observation_verification_metadata",
+        ),
+        CheckConstraint(
+            "verified_by_membership_id IS NULL OR verified_by_membership_id != recorded_by_membership_id",
+            name="ck_observation_separation_of_duties",
+        ),
+        CheckConstraint(
+            "(verification_status = 'superseded' AND superseded_by_id IS NOT NULL AND length(trim(supersession_rationale)) > 0) OR verification_status != 'superseded'",
+            name="ck_observation_supersession_metadata",
+        ),
+    )
+
+
+class DecisionEffectivenessAssessment(Base):
+    __tablename__ = "decision_effectiveness_assessments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    assessment_date: Mapped[date] = mapped_column(Date)
+    evaluation_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    evaluation_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    assessor_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    classification: Mapped[str] = mapped_column(String(30))
+    rationale: Mapped[str] = mapped_column(Text)
+    outcome_summary: Mapped[str] = mapped_column(Text, default="")
+    risk_summary: Mapped[str] = mapped_column(Text, default="")
+    condition_summary: Mapped[str] = mapped_column(Text, default="")
+    calculation_details: Mapped[dict] = mapped_column(JSON, default=dict)
+    evidence_references: Mapped[list] = mapped_column(JSON, default=list)
+    observation_references: Mapped[list] = mapped_column(JSON, default=list)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    supersedes_assessment_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint(
+            "tenant_id", "decision_case_id", "revision", name="uq_assessment_revision"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_assessment_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "assessor_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_assessment_tenant_assessor",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "supersedes_assessment_id"],
+            [
+                "decision_effectiveness_assessments.tenant_id",
+                "decision_effectiveness_assessments.id",
+            ],
+            name="fk_assessment_tenant_supersession",
+        ),
+        CheckConstraint(
+            "status IN ('draft','completed','superseded')", name="ck_assessment_status"
+        ),
+        CheckConstraint(
+            "classification IN ('exceeded','met','partially_met','did_not_meet','inconclusive','too_early','cancelled')",
+            name="ck_assessment_classification",
+        ),
+        CheckConstraint(
+            "evaluation_end IS NULL OR evaluation_start IS NULL OR evaluation_start <= evaluation_end",
+            name="ck_assessment_evaluation_period",
+        ),
+        CheckConstraint(
+            "(status = 'completed' AND completed_at IS NOT NULL) OR status != 'completed'",
+            name="ck_assessment_completion",
+        ),
+        CheckConstraint("length(trim(rationale)) > 0", name="ck_assessment_rationale"),
+    )
+
+
+class DecisionLesson(Base):
+    __tablename__ = "decision_lessons"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
+    decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_type: Mapped[str] = mapped_column(String(30), index=True)
+    description: Mapped[str] = mapped_column(Text)
+    business_impact: Mapped[str] = mapped_column(Text, default="")
+    related_outcome_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    related_evidence_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    related_finding_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    related_condition_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_by_membership_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_lesson_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "related_outcome_id"],
+            ["decision_expected_outcomes.tenant_id", "decision_expected_outcomes.id"],
+            name="fk_lesson_tenant_outcome",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "related_evidence_id"],
+            ["decision_evidence.tenant_id", "decision_evidence.id"],
+            name="fk_lesson_tenant_evidence",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "related_finding_id"],
+            ["decision_review_findings.tenant_id", "decision_review_findings.id"],
+            name="fk_lesson_tenant_finding",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "related_condition_id"],
+            [
+                "decision_approval_conditions.tenant_id",
+                "decision_approval_conditions.id",
+            ],
+            name="fk_lesson_tenant_condition",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "created_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_lesson_tenant_creator",
+        ),
+        CheckConstraint(
+            "lesson_type IN ('evidence','process','risk','assumption','execution','governance')",
+            name="ck_lesson_type",
+        ),
+        CheckConstraint("length(trim(description)) > 0", name="ck_lesson_description"),
     )
 
 

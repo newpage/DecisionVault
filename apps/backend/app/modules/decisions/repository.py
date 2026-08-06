@@ -8,6 +8,7 @@ from app.models import (
     BusinessConcept,
     DecisionCase,
     DecisionEvidence,
+    DecisionExpectedOutcome,
     DecisionApprovalAction,
     DecisionApprovalCondition,
     DecisionReview,
@@ -450,6 +451,24 @@ class DecisionRepository:
                 self._db.add(review)
                 stale.append(review)
         return stale
+
+    def freeze_expected_outcomes(
+        self, *, tenant_id: str, decision_id: str, frozen_at
+    ) -> list[DecisionExpectedOutcome]:
+        outcomes = list(
+            self._db.scalars(
+                select(DecisionExpectedOutcome).where(
+                    DecisionExpectedOutcome.tenant_id == tenant_id,
+                    DecisionExpectedOutcome.decision_case_id == decision_id,
+                    DecisionExpectedOutcome.status == "active",
+                    DecisionExpectedOutcome.frozen_at.is_(None),
+                )
+            ).all()
+        )
+        for outcome in outcomes:
+            outcome.frozen_at = frozen_at
+            self._db.add(outcome)
+        return outcomes
 
     def save_review_action(
         self,

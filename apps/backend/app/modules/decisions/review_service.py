@@ -50,7 +50,10 @@ from app.modules.decisions.schemas import (
     ReviewWorkspaceResponse,
 )
 from app.modules.decisions.service import DecisionNotFoundError
-from app.modules.members.service import CandidateEligibilityError, MemberDirectoryService
+from app.modules.members.service import (
+    CandidateEligibilityError,
+    MemberDirectoryService,
+)
 
 
 class DecisionReviewService:
@@ -138,7 +141,9 @@ class DecisionReviewService:
             membership_id=membership_id,
             review_type=review_type,
         ):
-            raise ReviewStateError("This reviewer already has an active review of this type")
+            raise ReviewStateError(
+                "This reviewer already has an active review of this type"
+            )
         rationale = require_text(rationale, "Assignment rationale")
         now = datetime.now(timezone.utc)
         review = DecisionReview(
@@ -217,7 +222,10 @@ class DecisionReviewService:
             decision_id=decision.id,
             membership_id=membership_id,
         )
-        if review.review_type == "final_approval" and candidate.user.id == decision.created_by:
+        if (
+            review.review_type == "final_approval"
+            and candidate.user.id == decision.created_by
+        ):
             raise ReviewStateError("A Decision creator cannot perform its final review")
         if self._repository.has_active_reviewer_type(
             tenant_id=tenant_id,
@@ -226,7 +234,9 @@ class DecisionReviewService:
             review_type=review.review_type,
             exclude_review_id=review.id,
         ):
-            raise ReviewStateError("This reviewer already has an active review of this type")
+            raise ReviewStateError(
+                "This reviewer already has an active review of this type"
+            )
         rationale = require_text(rationale, "Reassignment rationale")
         previous = review.assigned_reviewer_membership_id
         review.assigned_reviewer_membership_id = membership_id
@@ -621,7 +631,16 @@ class DecisionReviewService:
             rationale=rationale,
             actor_id=actor_id,
         )
-        objects: list = [decision, approval]
+        frozen_outcomes = (
+            self._repository.freeze_expected_outcomes(
+                tenant_id=tenant_id,
+                decision_id=decision.id,
+                frozen_at=datetime.now(timezone.utc),
+            )
+            if action in {"approved", "conditionally_approved"}
+            else []
+        )
+        objects: list = [decision, approval, *frozen_outcomes]
         created_conditions = [
             DecisionApprovalCondition(
                 id=uid(),
@@ -638,22 +657,32 @@ class DecisionReviewService:
         objects.extend(created_conditions)
         decision.status = action
         decision.updated_at = datetime.now(timezone.utc)
+        events = [
+            self._event(
+                decision,
+                actor_id,
+                "DecisionApprovalRecorded",
+                {
+                    "action_id": approval.id,
+                    "review_id": final_review.id,
+                    "action": action,
+                    "rationale": rationale,
+                },
+            )
+        ]
+        if frozen_outcomes:
+            events.append(
+                self._event(
+                    decision,
+                    actor_id,
+                    "DecisionExpectedOutcomesFrozen",
+                    {"outcome_ids": [item.id for item in frozen_outcomes]},
+                )
+            )
         try:
             self._save(
                 objects,
-                [
-                    self._event(
-                        decision,
-                        actor_id,
-                        "DecisionApprovalRecorded",
-                        {
-                            "action_id": approval.id,
-                            "review_id": final_review.id,
-                            "action": action,
-                            "rationale": rationale,
-                        },
-                    )
-                ],
+                events,
                 [decision, approval, *created_conditions],
             )
         except IntegrityError as exc:

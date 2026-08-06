@@ -7,6 +7,11 @@ from app.modules.decisions.evidence import EvidenceValidationError
 from app.modules.decisions.policies import DecisionPermissionError
 from app.modules.decisions.review import ReviewStateError
 from app.modules.decisions.repository import DecisionRepository
+from app.modules.decisions.outcome_repository import DecisionOutcomeRepository
+from app.modules.decisions.outcome_service import (
+    DecisionOutcomeService,
+    OutcomeStateError,
+)
 from app.modules.decisions.schemas import (
     ApprovalConditionResponse,
     ApprovalMutationResponse,
@@ -30,6 +35,18 @@ from app.modules.decisions.schemas import (
     ReviewFindingResponse,
     ReviewResponse,
     ReviewWorkspaceResponse,
+    AssessmentCreate,
+    AssessmentResponse,
+    EffectivenessWorkspaceResponse,
+    ExpectedOutcomeCreate,
+    ExpectedOutcomeResponse,
+    ExpectedOutcomeUpdate,
+    LessonCreate,
+    LessonResponse,
+    ObservationCreate,
+    ObservationResponse,
+    ObservationSupersede,
+    ObservationVerify,
 )
 from app.modules.decisions.service import (
     DecisionNotFoundError,
@@ -38,7 +55,10 @@ from app.modules.decisions.service import (
 )
 from app.modules.decisions.review_service import DecisionReviewService
 from app.modules.members.repository import MemberDirectoryRepository
-from app.modules.members.service import CandidateEligibilityError, MemberDirectoryService
+from app.modules.members.service import (
+    CandidateEligibilityError,
+    MemberDirectoryService,
+)
 
 router = APIRouter(tags=["Decision Intelligence"])
 
@@ -52,6 +72,10 @@ def get_review_service(db: Session = Depends(get_db)) -> DecisionReviewService:
         DecisionRepository(db),
         MemberDirectoryService(MemberDirectoryRepository(db)),
     )
+
+
+def get_outcome_service(db: Session = Depends(get_db)) -> DecisionOutcomeService:
+    return DecisionOutcomeService(DecisionOutcomeRepository(db), DecisionRepository(db))
 
 
 def map_failure(exc: Exception) -> HTTPException:
@@ -69,7 +93,219 @@ def map_failure(exc: Exception) -> HTTPException:
         return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, CandidateEligibilityError):
         return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, OutcomeStateError):
+        return HTTPException(status_code=409, detail=str(exc))
     raise exc
+
+
+@router.get(
+    "/decisions/{decision_id}/effectiveness",
+    response_model=EffectivenessWorkspaceResponse,
+)
+def get_effectiveness(
+    decision_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.workspace(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            permissions=principal.permissions,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/outcomes",
+    response_model=ExpectedOutcomeResponse,
+    status_code=201,
+)
+def create_expected_outcome(
+    decision_id: str,
+    body: ExpectedOutcomeCreate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.create_outcome(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.patch(
+    "/decisions/{decision_id}/outcomes/{outcome_id}",
+    response_model=ExpectedOutcomeResponse,
+)
+def update_expected_outcome(
+    decision_id: str,
+    outcome_id: str,
+    body: ExpectedOutcomeUpdate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.update_outcome(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            outcome_id=outcome_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/outcomes/{outcome_id}/observations",
+    response_model=ObservationResponse,
+    status_code=201,
+)
+def record_outcome_observation(
+    decision_id: str,
+    outcome_id: str,
+    body: ObservationCreate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.record_observation(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            outcome_id=outcome_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/outcomes/{outcome_id}/observations/{observation_id}/verify",
+    response_model=ObservationResponse,
+)
+def verify_outcome_observation(
+    decision_id: str,
+    outcome_id: str,
+    observation_id: str,
+    body: ObservationVerify,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.verify_observation(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            outcome_id=outcome_id,
+            observation_id=observation_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            rationale=body.rationale,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/outcomes/{outcome_id}/observations/{observation_id}/supersede",
+    response_model=ObservationResponse,
+    status_code=201,
+)
+def supersede_outcome_observation(
+    decision_id: str,
+    outcome_id: str,
+    observation_id: str,
+    body: ObservationSupersede,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.supersede_observation(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            outcome_id=outcome_id,
+            observation_id=observation_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/effectiveness-assessments",
+    response_model=AssessmentResponse,
+    status_code=201,
+)
+def create_effectiveness_assessment(
+    decision_id: str,
+    body: AssessmentCreate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.create_assessment(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/effectiveness-assessments/{assessment_id}/complete",
+    response_model=AssessmentResponse,
+)
+def complete_effectiveness_assessment(
+    decision_id: str,
+    assessment_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.complete_assessment(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            assessment_id=assessment_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/lessons", response_model=LessonResponse, status_code=201
+)
+def record_decision_lesson(
+    decision_id: str,
+    body: LessonCreate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionOutcomeService = Depends(get_outcome_service),
+):
+    try:
+        return service.record_lesson(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            membership_id=principal.membership.id,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError, OutcomeStateError) as exc:
+        raise map_failure(exc) from exc
 
 
 @router.get("/decisions", response_model=list[DecisionResponse])

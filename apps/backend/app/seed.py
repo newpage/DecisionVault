@@ -65,6 +65,12 @@ def seed(db: Session):
             "decision.conditionally_approve",
             "decision.reject",
             "decision.return_for_changes",
+            "decision.outcome.view",
+            "decision.outcome.define",
+            "decision.outcome.record",
+            "decision.outcome.verify",
+            "decision.outcome.assess",
+            "decision.lesson.record",
             "admin.manage",
         ]
     ]

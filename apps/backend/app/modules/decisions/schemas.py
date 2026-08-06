@@ -314,3 +314,195 @@ class DecisionWorkspaceResponse(BaseModel):
     evidence: list[EvidenceResponse]
     activity: list[ActivityResponse]
     workspace_summary: WorkspaceSummary
+
+
+class ExpectedOutcomeCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=240)
+    description: str = Field(min_length=3, max_length=4000)
+    category: str = Field(default="business", min_length=2, max_length=60)
+    measurement_type: Literal[
+        "numeric",
+        "percentage",
+        "currency",
+        "duration",
+        "boolean",
+        "milestone",
+        "qualitative",
+    ]
+    baseline_value: float | None = None
+    target_value: float | None = None
+    target_min_value: float | None = None
+    target_max_value: float | None = None
+    target_boolean: bool | None = None
+    unit: str = Field(default="", max_length=60)
+    target_direction: Literal[
+        "increase", "decrease", "range", "exact", "complete", "maintain"
+    ]
+    target_date: date | None = None
+    evaluation_window_days: int | None = Field(default=None, gt=0)
+    responsible_membership_id: str | None = None
+    weight: float = Field(default=1, gt=0, le=100)
+    is_critical: bool = False
+    success_criteria: str = Field(min_length=3, max_length=4000)
+
+
+class ExpectedOutcomeUpdate(ExpectedOutcomeCreate):
+    amendment_rationale: str | None = Field(default=None, min_length=3, max_length=2000)
+
+
+class ExpectedOutcomeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    decision_case_id: str
+    title: str
+    description: str
+    category: str
+    measurement_type: str
+    baseline_value: float | None
+    target_value: float | None
+    target_min_value: float | None
+    target_max_value: float | None
+    target_boolean: bool | None
+    unit: str
+    target_direction: str
+    target_date: date | None
+    evaluation_window_days: int | None
+    responsible_membership_id: str | None
+    weight: float
+    is_critical: bool
+    success_criteria: str
+    revision: int
+    status: str
+    amended_from_id: str | None
+    amendment_rationale: str
+    frozen_at: datetime | None
+    created_by_membership_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ObservationCreate(BaseModel):
+    observation_date: date
+    numeric_value: float | None = None
+    boolean_value: bool | None = None
+    observed_status: Literal[
+        "reported", "achieved", "not_achieved", "in_progress", "inconclusive"
+    ] = "reported"
+    narrative: str = Field(default="", max_length=4000)
+    provenance: Literal[
+        "manually_reported", "verified_business_record", "documented_evidence"
+    ]
+    source_reference: str = Field(default="", max_length=500)
+    decision_evidence_id: str | None = None
+
+
+class ObservationVerify(BaseModel):
+    rationale: str = Field(min_length=3, max_length=2000)
+
+
+class ObservationSupersede(ObservationCreate):
+    rationale: str = Field(min_length=3, max_length=2000)
+
+
+class ObservationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    expected_outcome_id: str
+    observation_date: date
+    numeric_value: float | None
+    boolean_value: bool | None
+    observed_status: str
+    narrative: str
+    provenance: str
+    source_reference: str
+    decision_evidence_id: str | None
+    recorded_by_membership_id: str
+    recorded_at: datetime
+    verification_status: str
+    verified_by_membership_id: str | None
+    verified_at: datetime | None
+    verification_rationale: str
+    superseded_by_id: str | None
+    supersession_rationale: str
+
+
+class AssessmentCreate(BaseModel):
+    assessment_date: date
+    evaluation_start: date | None = None
+    evaluation_end: date | None = None
+    classification: Literal[
+        "exceeded",
+        "met",
+        "partially_met",
+        "did_not_meet",
+        "inconclusive",
+        "too_early",
+        "cancelled",
+    ]
+    rationale: str = Field(min_length=3, max_length=4000)
+    outcome_summary: str = Field(default="", max_length=4000)
+    risk_summary: str = Field(default="", max_length=4000)
+    condition_summary: str = Field(default="", max_length=4000)
+    evidence_references: list[str] = Field(default_factory=list, max_length=100)
+    observation_references: list[str] = Field(default_factory=list, max_length=100)
+
+
+class AssessmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    decision_case_id: str
+    revision: int
+    status: str
+    assessment_date: date
+    evaluation_start: date | None
+    evaluation_end: date | None
+    assessor_membership_id: str
+    classification: str
+    rationale: str
+    outcome_summary: str
+    risk_summary: str
+    condition_summary: str
+    calculation_details: dict
+    evidence_references: list[str]
+    observation_references: list[str]
+    completed_at: datetime | None
+    supersedes_assessment_id: str | None
+    created_at: datetime
+
+
+class LessonCreate(BaseModel):
+    lesson_type: Literal[
+        "evidence", "process", "risk", "assumption", "execution", "governance"
+    ]
+    description: str = Field(min_length=3, max_length=4000)
+    business_impact: str = Field(default="", max_length=4000)
+    related_outcome_id: str | None = None
+    related_evidence_id: str | None = None
+    related_finding_id: str | None = None
+    related_condition_id: str | None = None
+
+
+class LessonResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    decision_case_id: str
+    lesson_type: str
+    description: str
+    business_impact: str
+    related_outcome_id: str | None
+    related_evidence_id: str | None
+    related_finding_id: str | None
+    related_condition_id: str | None
+    created_by_membership_id: str
+    created_at: datetime
+
+
+class EffectivenessWorkspaceResponse(BaseModel):
+    outcomes: list[ExpectedOutcomeResponse]
+    observations: list[ObservationResponse]
+    calculations: dict[str, dict]
+    aggregate: dict
+    assessments: list[AssessmentResponse]
+    lessons: list[LessonResponse]
+    conditions: list[ApprovalConditionResponse]
+    capabilities: dict[str, bool]

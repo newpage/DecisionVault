@@ -83,3 +83,36 @@ This change replaces the former reference-and-score `decision_evidence` table
 with explicit snapshot and removal fields and adds database constraints. It is
 a breaking pre-release schema change and requires a complete database refresh;
 no migration or compatibility adapter exists.
+
+### Governed outcomes and effectiveness
+
+Outcome reads require `decision.outcome.view`. Mutations use
+`decision.outcome.define`, `decision.outcome.record`, `decision.outcome.verify`,
+`decision.outcome.assess`, and `decision.lesson.record` as appropriate:
+
+```text
+GET   /decisions/{decision_id}/effectiveness
+POST  /decisions/{decision_id}/outcomes
+PATCH /decisions/{decision_id}/outcomes/{outcome_id}
+POST  /decisions/{decision_id}/outcomes/{outcome_id}/observations
+POST  /decisions/{decision_id}/outcomes/{outcome_id}/observations/{observation_id}/verify
+POST  /decisions/{decision_id}/outcomes/{outcome_id}/observations/{observation_id}/supersede
+POST  /decisions/{decision_id}/effectiveness-assessments
+POST  /decisions/{decision_id}/effectiveness-assessments/{assessment_id}/complete
+POST  /decisions/{decision_id}/lessons
+```
+
+Expected outcomes use controlled measurement and direction values. Approval
+freezes their accountable fields; `PATCH` after approval requires an amendment
+rationale and returns a new active revision. Observations are append-oriented,
+retain controlled provenance, and are excluded from authoritative calculations
+until independently verified by another active tenant Membership. Governed
+actions return 409 when the Decision lifecycle or separation-of-duties rule is
+invalid. Foreign tenant Decision, outcome, observation, assessment, membership,
+and related-record IDs return non-disclosing 404 responses.
+
+Effectiveness responses include individual calculation explanations, verification
+state, deterministic weighted aggregation, open approval conditions, assessments,
+and lessons. Missing data is inconclusive; failed critical outcomes override
+weighted success. These tables are a breaking clean-schema change and require a
+pre-release database reset; no migration is supplied.

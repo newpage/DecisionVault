@@ -19,6 +19,12 @@ APPROVE_PERMISSION = "decision.approve"
 CONDITIONALLY_APPROVE_PERMISSION = "decision.conditionally_approve"
 REJECT_PERMISSION = "decision.reject"
 RETURN_PERMISSION = "decision.return_for_changes"
+OUTCOME_VIEW_PERMISSION = "decision.outcome.view"
+OUTCOME_DEFINE_PERMISSION = "decision.outcome.define"
+OUTCOME_RECORD_PERMISSION = "decision.outcome.record"
+OUTCOME_VERIFY_PERMISSION = "decision.outcome.verify"
+OUTCOME_ASSESS_PERMISSION = "decision.outcome.assess"
+LESSON_RECORD_PERMISSION = "decision.lesson.record"
 
 
 @dataclass(frozen=True)
@@ -99,3 +105,15 @@ def authorize_assigned_reviewer(
         authorize_review_perform(permissions)
     else:
         authorize_review_manage(permissions)
+
+
+def authorize_outcome(permissions: set[str], action: str) -> None:
+    permission = {
+        "view": OUTCOME_VIEW_PERMISSION,
+        "define": OUTCOME_DEFINE_PERMISSION,
+        "record": OUTCOME_RECORD_PERMISSION,
+        "verify": OUTCOME_VERIFY_PERMISSION,
+        "assess": OUTCOME_ASSESS_PERMISSION,
+        "lesson": LESSON_RECORD_PERMISSION,
+    }[action]
+    require_permission(permissions, permission)

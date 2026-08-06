@@ -166,12 +166,40 @@ type ReviewWorkspace = {
   capabilities: Record<string, boolean>;
 };
 
+type ExpectedOutcome = {
+  id: string; title: string; description: string; measurement_type: string;
+  baseline_value: number | null; target_value: number | null;
+  target_min_value: number | null; target_max_value: number | null;
+  target_boolean: boolean | null; unit: string; target_direction: string;
+  target_date: string | null; weight: number; is_critical: boolean;
+  success_criteria: string; revision: number; frozen_at: string | null;
+};
+type OutcomeObservation = {
+  id: string; expected_outcome_id: string; observation_date: string;
+  numeric_value: number | null; boolean_value: boolean | null;
+  observed_status: string; narrative: string; provenance: string;
+  verification_status: string; recorded_by_membership_id: string;
+};
+type EffectivenessAssessment = {
+  id: string; status: string; classification: string; rationale: string;
+  assessment_date: string; calculation_details: Record<string, unknown>;
+};
+type EffectivenessWorkspace = {
+  outcomes: ExpectedOutcome[]; observations: OutcomeObservation[];
+  calculations: Record<string, {assessable: boolean; target_met: boolean | null; explanation: string; actual_value: unknown; target_value: unknown}>;
+  aggregate: {classification: string; weighted_target_met_ratio: number | null; missing_count: number; critical_failure: boolean};
+  assessments: EffectivenessAssessment[];
+  lessons: {id: string; lesson_type: string; description: string; business_impact: string}[];
+  conditions: ApprovalCondition[]; capabilities: Record<string, boolean>;
+};
+
 const tabs = [
   "Overview",
   "Evidence",
   "Timeline",
   "AI Analysis",
   "Approvals",
+  "Outcomes",
   "Reports",
 ] as const;
 
@@ -184,6 +212,14 @@ export default function DecisionWorkspace() {
   const [refreshing, setRefreshing] = useState(false);
   const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspace>();
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [effectiveness, setEffectiveness] = useState<EffectivenessWorkspace>();
+  const [outcomeBusy, setOutcomeBusy] = useState(false);
+  const [outcomeTitle, setOutcomeTitle] = useState("");
+  const [outcomeTarget, setOutcomeTarget] = useState("");
+  const [outcomeCriteria, setOutcomeCriteria] = useState("");
+  const [observationValues, setObservationValues] = useState<Record<string, string>>({});
+  const [assessmentRationale, setAssessmentRationale] = useState("");
+  const [lessonText, setLessonText] = useState("");
   const [reviewerCandidates, setReviewerCandidates] = useState<ReviewerCandidate[]>([]);
   const [selectedMembershipId, setSelectedMembershipId] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
@@ -233,6 +269,11 @@ export default function DecisionWorkspace() {
       } catch {
         setHistory([]);
       }
+      try {
+        setEffectiveness(await api<EffectivenessWorkspace>(`/decisions/${params.id}/effectiveness`));
+      } catch {
+        setEffectiveness(undefined);
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -241,6 +282,19 @@ export default function DecisionWorkspace() {
       );
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function outcomeAction(path: string, body?: object, method = "POST") {
+    setOutcomeBusy(true);
+    try {
+      setError("");
+      await api(`/decisions/${params.id}${path}`, {method, body: body ? JSON.stringify(body) : undefined});
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to update governed outcomes.");
+    } finally {
+      setOutcomeBusy(false);
     }
   }
 
@@ -838,6 +892,79 @@ export default function DecisionWorkspace() {
             </div>
           )}
         </DashboardWidget>
+      ) : null}
+
+      {activeTab === "Outcomes" ? (
+        <section className={styles.approvalWorkspace} aria-label="Decision outcomes and effectiveness">
+          {!effectiveness ? (
+            <div className={styles.emptyPanel}>Outcome tracking is unavailable for your current permissions.</div>
+          ) : (
+            <>
+              <div className={styles.workspaceGrid}>
+                <div className={styles.mainColumn}>
+                  <DashboardWidget eyebrow="Expected versus actual" title={`Expected outcomes (${effectiveness.outcomes.length})`}>
+                    {!effectiveness.outcomes.length ? <p className={styles.helperText}>No expected outcomes have been defined. Missing data is never treated as success.</p> : null}
+                    <div className={styles.reviewList}>
+                      {effectiveness.outcomes.map((outcome) => {
+                        const calculation = effectiveness.calculations[outcome.id];
+                        const observations = effectiveness.observations.filter((item) => item.expected_outcome_id === outcome.id);
+                        return <article className={styles.reviewCard} key={outcome.id}>
+                          <div className={styles.reviewHeader}>
+                            <strong>{outcome.title}</strong>
+                            <span>{outcome.is_critical ? "Critical · " : ""}{outcome.frozen_at ? `Frozen revision ${outcome.revision}` : "Editable before approval"}</span>
+                          </div>
+                          <p>{outcome.description}</p>
+                          <p className={styles.helperText}>Baseline {outcome.baseline_value ?? "not set"} · Target {outcome.target_direction === "range" ? `${outcome.target_min_value}–${outcome.target_max_value}` : outcome.target_value ?? String(outcome.target_boolean ?? "governed assessment")} {outcome.unit} · {outcome.target_date || "No target date"}</p>
+                          <p><strong>{calculation?.assessable ? (calculation.target_met ? "Target met" : "Target not met") : "Incomplete or too early"}</strong> — {calculation?.explanation}</p>
+                          <div className={styles.findingList}>
+                            {observations.map((observation) => <div className={styles.finding} key={observation.id}>
+                              <strong>{observation.observation_date}: {observation.numeric_value ?? String(observation.boolean_value ?? observation.observed_status)}</strong>
+                              <span>{observation.verification_status.replaceAll("_", " ")} · {observation.provenance.replaceAll("_", " ")}</span>
+                              {observation.narrative ? <p>{observation.narrative}</p> : null}
+                              {observation.verification_status === "unverified" && effectiveness.capabilities.verify ? <button className={styles.primaryAction} disabled={outcomeBusy} onClick={() => void outcomeAction(`/outcomes/${outcome.id}/observations/${observation.id}/verify`, {rationale: "Independently checked against the reported business record."})}>Verify observation</button> : null}
+                            </div>)}
+                          </div>
+                          {effectiveness.capabilities.record && effectiveness.capabilities.eligible ? <div className={styles.actionRow}>
+                            <input aria-label={`Actual value for ${outcome.title}`} placeholder="Observed numeric value" value={observationValues[outcome.id] || ""} onChange={(event) => setObservationValues((current) => ({...current, [outcome.id]: event.target.value}))} />
+                            <button className={styles.primaryAction} disabled={outcomeBusy} onClick={() => void outcomeAction(`/outcomes/${outcome.id}/observations`, {observation_date: new Date().toISOString().slice(0, 10), numeric_value: Number(observationValues[outcome.id]), observed_status: "reported", narrative: "Recorded from the Decision workspace.", provenance: "manually_reported"})}>Record observation</button>
+                          </div> : null}
+                        </article>;
+                      })}
+                    </div>
+                  </DashboardWidget>
+                  {effectiveness.capabilities.define && !["rejected", "closed"].includes(decision.status) ? <DashboardWidget eyebrow="Governed expectation" title="Define expected outcome">
+                    <div className={styles.controlGroup}>
+                      <input aria-label="Outcome title" placeholder="Outcome title" value={outcomeTitle} onChange={(event) => setOutcomeTitle(event.target.value)} />
+                      <input aria-label="Target value" placeholder="Numeric target" value={outcomeTarget} onChange={(event) => setOutcomeTarget(event.target.value)} />
+                      <textarea aria-label="Success criteria" placeholder="Business description and success criteria" value={outcomeCriteria} onChange={(event) => setOutcomeCriteria(event.target.value)} />
+                      <button className={styles.primaryAction} disabled={outcomeBusy || outcomeTitle.length < 3 || outcomeCriteria.length < 3} onClick={() => void outcomeAction("/outcomes", {title: outcomeTitle, description: outcomeCriteria, measurement_type: "numeric", target_value: Number(outcomeTarget), target_direction: "increase", success_criteria: outcomeCriteria})}>Create expected outcome</button>
+                    </div>
+                  </DashboardWidget> : null}
+                </div>
+                <aside className={styles.sideColumn}>
+                  <DashboardWidget eyebrow="Deterministic result" title="Overall effectiveness">
+                    <p className={styles.recommendation}>{effectiveness.aggregate.classification.replaceAll("_", " ")}</p>
+                    <p className={styles.helperText}>{effectiveness.aggregate.weighted_target_met_ratio === null ? "No verified assessable outcomes." : `${effectiveness.aggregate.weighted_target_met_ratio}% of assessable outcome weight met.`}</p>
+                    {effectiveness.aggregate.critical_failure ? <p className={styles.overdue}>A critical outcome failed; weighted success cannot override it.</p> : null}
+                    {effectiveness.aggregate.missing_count ? <p className={styles.helperText}>{effectiveness.aggregate.missing_count} outcome(s) remain incomplete.</p> : null}
+                  </DashboardWidget>
+                  <DashboardWidget eyebrow="Approval integration" title={`Conditions (${effectiveness.conditions.length})`}>
+                    {effectiveness.conditions.map((condition) => <div className={styles.finding} key={condition.id}><strong>{condition.condition_text}</strong><span>{condition.status}{condition.due_date ? ` · due ${condition.due_date}` : ""}</span></div>)}
+                    {!effectiveness.conditions.length ? <p className={styles.helperText}>No approval conditions.</p> : null}
+                  </DashboardWidget>
+                  <DashboardWidget eyebrow="Governed judgment" title="Assessments">
+                    {effectiveness.assessments.map((assessment) => <div className={styles.finding} key={assessment.id}><strong>{assessment.classification.replaceAll("_", " ")}</strong><span>{assessment.status} · {assessment.assessment_date}</span><p>{assessment.rationale}</p>{assessment.status === "draft" && effectiveness.capabilities.assess ? <button className={styles.primaryAction} onClick={() => void outcomeAction(`/effectiveness-assessments/${assessment.id}/complete`)}>Complete assessment</button> : null}</div>)}
+                    {effectiveness.capabilities.assess && effectiveness.capabilities.eligible ? <div className={styles.controlGroup}><textarea aria-label="Assessment rationale" placeholder="Assessment rationale" value={assessmentRationale} onChange={(event) => setAssessmentRationale(event.target.value)} /><button className={styles.primaryAction} disabled={outcomeBusy || assessmentRationale.length < 3} onClick={() => void outcomeAction("/effectiveness-assessments", {assessment_date: new Date().toISOString().slice(0, 10), classification: effectiveness.aggregate.classification, rationale: assessmentRationale})}>Create assessment</button></div> : null}
+                  </DashboardWidget>
+                  <DashboardWidget eyebrow="Retained learning" title="Lessons learned">
+                    {effectiveness.lessons.map((lesson) => <div className={styles.finding} key={lesson.id}><strong>{lesson.lesson_type} lesson</strong><p>{lesson.description}</p></div>)}
+                    {effectiveness.capabilities.lesson && effectiveness.capabilities.eligible ? <div className={styles.controlGroup}><textarea aria-label="Lesson learned" placeholder="Lesson learned" value={lessonText} onChange={(event) => setLessonText(event.target.value)} /><button className={styles.primaryAction} disabled={outcomeBusy || lessonText.length < 3} onClick={() => void outcomeAction("/lessons", {lesson_type: "execution", description: lessonText})}>Record lesson</button></div> : null}
+                  </DashboardWidget>
+                </aside>
+              </div>
+            </>
+          )}
+        </section>
       ) : null}
 
       {activeTab === "Approvals" ? (

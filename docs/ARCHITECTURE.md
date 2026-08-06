@@ -2,6 +2,17 @@
 
 This document describes the repository at version `0.5.0-alpha.3`. It is descriptive, not a proposal.
 
+## Governed Decision outcomes
+
+Post-approval effectiveness remains inside the Decision Intelligence modular
+monolith. `DecisionExpectedOutcome` retains versioned targets,
+`DecisionOutcomeObservation` retains append-oriented actuals and independent
+Membership verification, `DecisionEffectivenessAssessment` freezes deterministic
+calculation details with the assessor's classification, and `DecisionLesson`
+retains bounded Decision-specific learning. All relationships use tenant-aware
+repository predicates and composite tenant foreign keys. No generic metrics,
+time-series, project-management, or external analytics subsystem is introduced.
+
 ## System context
 
 DecisionVault is a multi-tenant decision-intelligence application. Existing source repositories remain authoritative; uploaded source material is extracted into draft Knowledge Cards, reviewed as governed knowledge, retrieved for grounded answers, and retained as evidence for Decision Cases.
