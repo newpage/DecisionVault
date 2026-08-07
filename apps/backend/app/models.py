@@ -283,6 +283,7 @@ class KnowledgeCard(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
+    __table_args__ = (UniqueConstraint("tenant_id", "id"),)
 
 
 class KnowledgeEvidence(Base):
@@ -1248,6 +1249,14 @@ class DecisionLessonAdoption(Base):
             "historical_decision_id",
             name="uq_adoption_tenant_id_decisions",
         ),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            "decision_case_id",
+            "historical_decision_id",
+            "historical_lesson_id",
+            name="uq_adoption_promotion_context",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "decision_case_id"],
             ["decision_cases.tenant_id", "decision_cases.id"],
@@ -1442,6 +1451,14 @@ class DecisionLessonEvaluation(Base):
     supersession_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            "decision_case_id",
+            "lesson_adoption_id",
+            "effectiveness_assessment_id",
+            name="uq_lesson_eval_promotion_context",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "decision_case_id"],
             ["decision_cases.tenant_id", "decision_cases.id"],
@@ -1510,6 +1527,245 @@ class DecisionLessonEvaluation(Base):
             unique=True,
             postgresql_where=text("superseded_at IS NULL"),
             sqlite_where=text("superseded_at IS NULL"),
+        ),
+    )
+
+
+class DecisionLessonPromotionProposal(Base):
+    __tablename__ = "decision_lesson_promotion_proposals"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    source_decision_id: Mapped[str] = mapped_column(String(36), index=True)
+    source_lesson_id: Mapped[str] = mapped_column(String(36), index=True)
+    evaluation_decision_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_adoption_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_evaluation_id: Mapped[str] = mapped_column(String(36), index=True)
+    effectiveness_assessment_id: Mapped[str] = mapped_column(String(36), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True, default="proposed")
+    rationale: Mapped[str] = mapped_column(Text)
+    applicability: Mapped[str] = mapped_column(Text)
+    limitations: Mapped[str] = mapped_column(Text)
+    proposed_title: Mapped[str] = mapped_column(String(240))
+    proposed_summary: Mapped[str] = mapped_column(Text)
+    proposed_body: Mapped[str] = mapped_column(Text)
+    snapshot_source_decision: Mapped[dict] = mapped_column(JSON)
+    snapshot_lesson: Mapped[dict] = mapped_column(JSON)
+    snapshot_adoption: Mapped[dict] = mapped_column(JSON)
+    snapshot_evaluation: Mapped[dict] = mapped_column(JSON)
+    snapshot_effectiveness: Mapped[dict] = mapped_column(JSON)
+    snapshot_relevant_outcomes: Mapped[list] = mapped_column(JSON, default=list)
+    snapshot_provenance: Mapped[dict] = mapped_column(JSON)
+    source_classification_rank: Mapped[int] = mapped_column(Integer)
+    evaluation_classification_rank: Mapped[int] = mapped_column(Integer)
+    inherited_classification_rank: Mapped[int] = mapped_column(Integer)
+    source_access_policy_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    evaluation_access_policy_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    inherited_access_policy_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    proposed_by_membership_id: Mapped[str] = mapped_column(String(36))
+    proposed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    reviewed_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    review_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    withdrawn_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    withdrawn_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    withdrawal_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    promoted_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    promoted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resulting_knowledge_card_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(
+            ["tenant_id", "source_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "source_lesson_id"],
+            ["decision_lessons.tenant_id", "decision_lessons.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "evaluation_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "lesson_adoption_id",
+                "evaluation_decision_id",
+                "source_decision_id",
+                "source_lesson_id",
+            ],
+            [
+                "decision_lesson_adoptions.tenant_id",
+                "decision_lesson_adoptions.id",
+                "decision_lesson_adoptions.decision_case_id",
+                "decision_lesson_adoptions.historical_decision_id",
+                "decision_lesson_adoptions.historical_lesson_id",
+            ],
+            name="fk_promotion_adoption_context",
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "lesson_evaluation_id",
+                "evaluation_decision_id",
+                "lesson_adoption_id",
+                "effectiveness_assessment_id",
+            ],
+            [
+                "decision_lesson_evaluations.tenant_id",
+                "decision_lesson_evaluations.id",
+                "decision_lesson_evaluations.decision_case_id",
+                "decision_lesson_evaluations.lesson_adoption_id",
+                "decision_lesson_evaluations.effectiveness_assessment_id",
+            ],
+            name="fk_promotion_evaluation_context",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "effectiveness_assessment_id"],
+            [
+                "decision_effectiveness_assessments.tenant_id",
+                "decision_effectiveness_assessments.id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "source_access_policy_id"],
+            ["access_policies.tenant_id", "access_policies.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "evaluation_access_policy_id"],
+            ["access_policies.tenant_id", "access_policies.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "inherited_access_policy_id"],
+            ["access_policies.tenant_id", "access_policies.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "proposed_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "reviewed_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "withdrawn_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "promoted_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "resulting_knowledge_card_id"],
+            ["knowledge_cards.tenant_id", "knowledge_cards.id"],
+        ),
+        CheckConstraint(
+            "status IN ('proposed','approved','rejected','withdrawn','promoted')",
+            name="ck_lesson_promotion_status",
+        ),
+        CheckConstraint(
+            "length(trim(rationale)) > 0 AND length(trim(applicability)) > 0 AND length(trim(limitations)) > 0 AND length(trim(proposed_title)) > 0 AND length(trim(proposed_summary)) > 0 AND length(trim(proposed_body)) > 0",
+            name="ck_lesson_promotion_text",
+        ),
+        CheckConstraint(
+            "inherited_classification_rank >= source_classification_rank AND inherited_classification_rank >= evaluation_classification_rank",
+            name="ck_lesson_promotion_classification",
+        ),
+        CheckConstraint(
+            "(status IN ('approved','rejected','promoted') AND reviewed_at IS NOT NULL AND reviewed_by_membership_id IS NOT NULL AND length(trim(review_rationale)) > 0) OR status IN ('proposed','withdrawn')",
+            name="ck_lesson_promotion_review",
+        ),
+        CheckConstraint(
+            "(status = 'withdrawn' AND withdrawn_at IS NOT NULL AND withdrawn_by_membership_id IS NOT NULL AND length(trim(withdrawal_rationale)) > 0) OR status != 'withdrawn'",
+            name="ck_lesson_promotion_withdrawal",
+        ),
+        CheckConstraint(
+            "(status = 'promoted' AND promoted_at IS NOT NULL AND promoted_by_membership_id IS NOT NULL AND resulting_knowledge_card_id IS NOT NULL) OR status != 'promoted'",
+            name="ck_lesson_promotion_promoted",
+        ),
+        Index(
+            "uq_active_lesson_promotion",
+            "tenant_id",
+            "source_lesson_id",
+            "lesson_evaluation_id",
+            unique=True,
+            postgresql_where=text("status IN ('proposed','approved')"),
+            sqlite_where=text("status IN ('proposed','approved')"),
+        ),
+    )
+
+
+class KnowledgeCardLessonProvenance(Base):
+    __tablename__ = "knowledge_card_lesson_provenance"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    knowledge_card_id: Mapped[str] = mapped_column(String(36), index=True)
+    promotion_proposal_id: Mapped[str] = mapped_column(String(36), index=True)
+    source_decision_id: Mapped[str] = mapped_column(String(36), index=True)
+    source_lesson_id: Mapped[str] = mapped_column(String(36), index=True)
+    lesson_evaluation_id: Mapped[str] = mapped_column(String(36), index=True)
+    immutable_snapshot: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint(
+            "tenant_id", "knowledge_card_id", name="uq_card_lesson_provenance"
+        ),
+        UniqueConstraint(
+            "tenant_id", "promotion_proposal_id", name="uq_proposal_card_provenance"
+        ),
+        ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(
+            ["tenant_id", "knowledge_card_id"],
+            ["knowledge_cards.tenant_id", "knowledge_cards.id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "promotion_proposal_id"],
+            [
+                "decision_lesson_promotion_proposals.tenant_id",
+                "decision_lesson_promotion_proposals.id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "source_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "source_lesson_id"],
+            ["decision_lessons.tenant_id", "decision_lessons.id"],
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "lesson_evaluation_id"],
+            ["decision_lesson_evaluations.tenant_id", "decision_lesson_evaluations.id"],
         ),
     )
 

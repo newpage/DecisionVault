@@ -32,13 +32,32 @@ class KnowledgeService:
         *,
         tenant_id: str,
         clearance_rank: int,
+        role_ids: set[str],
         query: str = "",
     ):
-        return self._repository.list_cards(
+        cards = self._repository.list_cards(
             tenant_id=tenant_id,
             clearance_rank=clearance_rank,
+            role_ids=role_ids,
             query=query,
         )
+        provenances = self._repository.provenances(
+            tenant_id=tenant_id, card_ids=[card.id for card in cards]
+        )
+        return [
+            {
+                column.name: getattr(card, column.name)
+                for column in card.__table__.columns
+            }
+            | {
+                "decision_lesson_provenance": provenances.get(
+                    card.id
+                ).immutable_snapshot
+                if provenances.get(card.id)
+                else None
+            }
+            for card in cards
+        ]
 
     def queue_source_upload(
         self,
@@ -99,11 +118,32 @@ class KnowledgeService:
         *,
         card_id: str,
         tenant_id: str,
+        actor_id: str,
+        clearance_rank: int,
+        role_ids: set[str],
+        can_submit: bool,
     ) -> KnowledgeCard:
-        card = self._require_card(card_id=card_id, tenant_id=tenant_id)
+        if not can_submit:
+            raise KnowledgePermissionError("Knowledge submission permission required")
+        card = self._require_card(
+            card_id=card_id,
+            tenant_id=tenant_id,
+            clearance_rank=clearance_rank,
+            role_ids=role_ids,
+        )
+        if card.lifecycle_status != "draft" or card.approval_status != "not_submitted":
+            raise KnowledgeValidationError("Only a governed draft can be submitted")
         card.approval_status = "pending_review"
         card.lifecycle_status = "in_review"
-        return self._repository.commit_card(card)
+        return self._repository.commit_card(
+            card,
+            self._event(
+                card,
+                actor_id,
+                "KnowledgeSubmitted",
+                "Knowledge Card submitted for governance review",
+            ),
+        )
 
     def approve_card(
         self,
@@ -112,29 +152,68 @@ class KnowledgeService:
         tenant_id: str,
         approver_id: str,
         can_approve: bool,
+        clearance_rank: int,
+        role_ids: set[str],
     ) -> KnowledgeCard:
         if not can_approve:
-            raise KnowledgePermissionError(
-                "Knowledge approval permission required"
+            raise KnowledgePermissionError("Knowledge approval permission required")
+        card = self._require_card(
+            card_id=card_id,
+            tenant_id=tenant_id,
+            clearance_rank=clearance_rank,
+            role_ids=role_ids,
+        )
+        if (
+            card.lifecycle_status != "in_review"
+            or card.approval_status != "pending_review"
+        ):
+            raise KnowledgeValidationError(
+                "Only a submitted Knowledge Card can be approved"
             )
-        card = self._require_card(card_id=card_id, tenant_id=tenant_id)
         card.approval_status = "approved"
         card.lifecycle_status = "published"
         card.approved_by = approver_id
         card.approved_at = datetime.now(timezone.utc)
         card.trust_score = max(card.trust_score, 0.8)
-        return self._repository.commit_card(card)
+        return self._repository.commit_card(
+            card,
+            self._event(
+                card,
+                approver_id,
+                "KnowledgePublished",
+                "Knowledge Card approved and published",
+            ),
+        )
 
     def _require_card(
         self,
         *,
         card_id: str,
         tenant_id: str,
+        clearance_rank: int,
+        role_ids: set[str],
     ) -> KnowledgeCard:
         card = self._repository.get_card(
             card_id=card_id,
             tenant_id=tenant_id,
+            clearance_rank=clearance_rank,
+            role_ids=role_ids,
         )
         if card is None:
             raise KnowledgeNotFoundError("Knowledge Card not found")
         return card
+
+    @staticmethod
+    def _event(card, actor_id, event_type, description):
+        return AuditEvent(
+            tenant_id=card.tenant_id,
+            actor_id=actor_id,
+            event_type=event_type,
+            entity_type="knowledge_card",
+            entity_id=card.id,
+            description=description,
+            details={
+                "lifecycle_status": card.lifecycle_status,
+                "approval_status": card.approval_status,
+            },
+        )

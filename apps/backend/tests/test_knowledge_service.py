@@ -14,6 +14,7 @@ from app.modules.knowledge.service import (
 @dataclass
 class FakeCard:
     id: str = "card-1"
+    tenant_id: str = "tenant-1"
     approval_status: str = "not_submitted"
     lifecycle_status: str = "draft"
     approved_by: str | None = None
@@ -46,7 +47,7 @@ class FakeRepository:
     def list_jobs(self, **kwargs):
         return []
 
-    def commit_card(self, card):
+    def commit_card(self, card, event):
         self.saved_card = card
         return card
 
@@ -55,7 +56,14 @@ def test_submit_card_changes_governance_state():
     repository = FakeRepository()
     service = KnowledgeService(repository)
 
-    card = service.submit_card(card_id="card-1", tenant_id="tenant-1")
+    card = service.submit_card(
+        card_id="card-1",
+        tenant_id="tenant-1",
+        actor_id="user-1",
+        clearance_rank=50,
+        role_ids=set(),
+        can_submit=True,
+    )
 
     assert card.approval_status == "pending_review"
     assert card.lifecycle_status == "in_review"
@@ -71,6 +79,8 @@ def test_approve_requires_permission():
             tenant_id="tenant-1",
             approver_id="user-1",
             can_approve=False,
+            clearance_rank=50,
+            role_ids=set(),
         )
 
 
@@ -78,7 +88,14 @@ def test_missing_card_raises_not_found():
     service = KnowledgeService(FakeRepository())
 
     with pytest.raises(KnowledgeNotFoundError):
-        service.submit_card(card_id="missing", tenant_id="tenant-1")
+        service.submit_card(
+            card_id="missing",
+            tenant_id="tenant-1",
+            actor_id="user-1",
+            clearance_rank=50,
+            role_ids=set(),
+            can_submit=True,
+        )
 
 
 def test_empty_upload_is_rejected():

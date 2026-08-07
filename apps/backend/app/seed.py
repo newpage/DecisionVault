@@ -85,6 +85,9 @@ def seed_core(db: Session) -> None:
             "decision.learning.view",
             "decision.learning.evaluate",
             "decision.learning.manage",
+            "decision.lesson.promotion.view",
+            "decision.lesson.promote",
+            "decision.lesson.promotion.review",
             "admin.manage",
         ]
     ]

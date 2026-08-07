@@ -214,6 +214,8 @@ type DecisionComparison = PrecedentResult & {
 type GovernedPrecedent = {id: string; historical_decision_id: string; relationship_type: string; rationale: string; similarity_score: number; similarity_algorithm_version: string; snapshot_historical_title: string; snapshot_historical_status: string; snapshot_outcome_classification: string | null; referenced_by_membership_id: string; referenced_at: string};
 type LessonAdoption = {id: string; historical_lesson_id: string; status: string; rationale: string; snapshot_lesson_type: string; snapshot_lesson_description: string; acted_by_membership_id: string; acted_at: string};
 type DecisionLearning = {precedent_evaluations: {id: string; precedent_reference_id: string; classification: string; rationale: string; current_effectiveness_snapshot: string; evaluated_at: string; superseded_at: string | null}[]; lesson_evaluations: {id: string; lesson_adoption_id: string; classification: string; rationale: string; was_applied: boolean | null; evaluated_at: string; superseded_at: string | null}[]};
+type LessonPromotion = {id: string; status: string; rationale: string; applicability: string; limitations: string; proposed_title: string; review_rationale: string | null; resulting_knowledge_card_id: string | null; proposed_at: string};
+type LessonPromotionWorkspace = {eligibility: {eligible: boolean; reasons: string[]; evaluations: {evaluation_id: string; classification: string; effectiveness_classification: string}[]}; proposals: LessonPromotion[]};
 
 const tabs = [
   "Overview",
@@ -255,6 +257,9 @@ export default function DecisionWorkspace() {
   const [lessonRationales, setLessonRationales] = useState<Record<string, string>>({});
   const [learning, setLearning] = useState<DecisionLearning>({precedent_evaluations: [], lesson_evaluations: []});
   const [learningRationales, setLearningRationales] = useState<Record<string, string>>({});
+  const [lessonPromotions, setLessonPromotions] = useState<Record<string, LessonPromotionWorkspace>>({});
+  const [promotionDrafts, setPromotionDrafts] = useState<Record<string, {rationale: string; applicability: string; limitations: string; title: string; summary: string; body: string}>>({});
+  const [promotionActionRationales, setPromotionActionRationales] = useState<Record<string, string>>({});
   const [reviewerCandidates, setReviewerCandidates] = useState<ReviewerCandidate[]>([]);
   const [selectedMembershipId, setSelectedMembershipId] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
@@ -305,7 +310,13 @@ export default function DecisionWorkspace() {
         setHistory([]);
       }
       try {
-        setEffectiveness(await api<EffectivenessWorkspace>(`/decisions/${params.id}/effectiveness`));
+        const effectivenessData = await api<EffectivenessWorkspace>(`/decisions/${params.id}/effectiveness`);
+        setEffectiveness(effectivenessData);
+        const promotionEntries = await Promise.all(effectivenessData.lessons.map(async (lesson) => {
+          try { return [lesson.id, await api<LessonPromotionWorkspace>(`/decisions/${params.id}/lessons/${lesson.id}/promotions`)] as const; }
+          catch { return [lesson.id, undefined] as const; }
+        }));
+        setLessonPromotions(Object.fromEntries(promotionEntries.filter((entry): entry is readonly [string, LessonPromotionWorkspace] => Boolean(entry[1]))));
       } catch {
         setEffectiveness(undefined);
       }
@@ -395,6 +406,27 @@ export default function DecisionWorkspace() {
       await load();
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to supersede learning evaluation."); }
     finally { setMemoryBusy(false); }
+  }
+
+  async function proposeLessonPromotion(lessonId: string) {
+    const workspace = lessonPromotions[lessonId]; const draft = promotionDrafts[lessonId];
+    if (!workspace?.eligibility.evaluations[0] || !draft) return;
+    setOutcomeBusy(true);
+    try {
+      await api(`/decisions/${params.id}/lessons/${lessonId}/promotions`, {method: "POST", body: JSON.stringify({...draft, lesson_evaluation_id: workspace.eligibility.evaluations[0].evaluation_id})});
+      await load();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to propose lesson promotion."); }
+    finally { setOutcomeBusy(false); }
+  }
+
+  async function lessonPromotionAction(lessonId: string, proposalId: string, action: "approve" | "reject" | "withdraw" | "promote") {
+    setOutcomeBusy(true);
+    try {
+      const path = action === "promote" ? `/decisions/${params.id}/lessons/${lessonId}/promotions/${proposalId}/promote` : `/decisions/${params.id}/lessons/${lessonId}/promotions/${proposalId}/review/${action}`;
+      await api(path, {method: "POST", body: action === "promote" ? undefined : JSON.stringify({rationale: promotionActionRationales[proposalId] || ""})});
+      await load();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to update lesson promotion."); }
+    finally { setOutcomeBusy(false); }
   }
 
   async function outcomeAction(path: string, body?: object, method = "POST") {
@@ -1144,7 +1176,7 @@ export default function DecisionWorkspace() {
                     {effectiveness.capabilities.assess && effectiveness.capabilities.eligible ? <div className={styles.controlGroup}><textarea aria-label="Assessment rationale" placeholder="Assessment rationale" value={assessmentRationale} onChange={(event) => setAssessmentRationale(event.target.value)} /><button className={styles.primaryAction} disabled={outcomeBusy || assessmentRationale.length < 3} onClick={() => void outcomeAction("/effectiveness-assessments", {assessment_date: new Date().toISOString().slice(0, 10), classification: effectiveness.aggregate.classification, rationale: assessmentRationale})}>Create assessment</button></div> : null}
                   </DashboardWidget>
                   <DashboardWidget eyebrow="Retained learning" title="Lessons learned">
-                    {effectiveness.lessons.map((lesson) => <div className={styles.finding} key={lesson.id}><strong>{lesson.lesson_type} lesson</strong><p>{lesson.description}</p></div>)}
+                    {effectiveness.lessons.map((lesson) => { const promotion = lessonPromotions[lesson.id]; const draft = promotionDrafts[lesson.id] || {rationale: "", applicability: "", limitations: "", title: lesson.description.slice(0, 120), summary: lesson.business_impact || lesson.description, body: lesson.description}; const setDraft = (key: keyof typeof draft, value: string) => setPromotionDrafts((current) => ({...current, [lesson.id]: {...draft, [key]: value}})); return <div className={styles.finding} key={lesson.id}><strong>{lesson.lesson_type} lesson</strong><p>{lesson.description}</p><p className={styles.helperText}>Observed usefulness supports reuse consideration but does not prove universal applicability.</p>{promotion ? <><span>{promotion.eligibility.eligible ? "Eligible for explicit human promotion" : promotion.eligibility.reasons.join(" · ")}</span>{promotion.proposals.map((proposal) => <div className={styles.reviewCard} key={proposal.id}><strong>{proposal.status.replaceAll("_", " ")} · {proposal.proposed_title}</strong><p>{proposal.rationale}</p><p><b>Applicability:</b> {proposal.applicability}</p><p><b>Limitations:</b> {proposal.limitations}</p>{proposal.review_rationale ? <p><b>Review rationale:</b> {proposal.review_rationale}</p> : null}{proposal.resulting_knowledge_card_id ? <p className={styles.recommendation}><a href="/knowledge">View governed draft Knowledge Card</a> · {proposal.resulting_knowledge_card_id}</p> : null}{["proposed", "approved"].includes(proposal.status) ? <textarea aria-label={`Action rationale for ${proposal.proposed_title}`} placeholder="Required rationale for approval, rejection, or withdrawal" value={promotionActionRationales[proposal.id] || ""} onChange={(event) => setPromotionActionRationales((current) => ({...current, [proposal.id]: event.target.value}))} /> : null}<div className={styles.actionRow}>{proposal.status === "proposed" ? <><button disabled={outcomeBusy || !(promotionActionRationales[proposal.id] || "").trim()} onClick={() => void lessonPromotionAction(lesson.id, proposal.id, "approve")}>Approve promotion</button><button disabled={outcomeBusy || !(promotionActionRationales[proposal.id] || "").trim()} onClick={() => void lessonPromotionAction(lesson.id, proposal.id, "reject")}>Reject</button><button disabled={outcomeBusy || !(promotionActionRationales[proposal.id] || "").trim()} onClick={() => void lessonPromotionAction(lesson.id, proposal.id, "withdraw")}>Withdraw</button></> : null}{proposal.status === "approved" ? <><button className={styles.primaryAction} disabled={outcomeBusy} onClick={() => void lessonPromotionAction(lesson.id, proposal.id, "promote")}>Create governed draft Knowledge Card</button><button disabled={outcomeBusy || !(promotionActionRationales[proposal.id] || "").trim()} onClick={() => void lessonPromotionAction(lesson.id, proposal.id, "withdraw")}>Withdraw</button></> : null}</div></div>)}{promotion.eligibility.eligible && !promotion.proposals.some((item) => ["proposed", "approved"].includes(item.status)) ? <div className={styles.controlGroup}><input aria-label={`Promotion title for ${lesson.description}`} value={draft.title} onChange={(event) => setDraft("title", event.target.value)} /><textarea aria-label={`Promotion rationale for ${lesson.description}`} placeholder="Why should this lesson become organizational knowledge?" value={draft.rationale} onChange={(event) => setDraft("rationale", event.target.value)} /><textarea aria-label={`Applicability for ${lesson.description}`} placeholder="Where does this lesson apply?" value={draft.applicability} onChange={(event) => setDraft("applicability", event.target.value)} /><textarea aria-label={`Limitations for ${lesson.description}`} placeholder="Where might this lesson not apply?" value={draft.limitations} onChange={(event) => setDraft("limitations", event.target.value)} /><textarea aria-label={`Knowledge summary for ${lesson.description}`} value={draft.summary} onChange={(event) => setDraft("summary", event.target.value)} /><textarea aria-label={`Knowledge body for ${lesson.description}`} value={draft.body} onChange={(event) => setDraft("body", event.target.value)} /><button className={styles.primaryAction} disabled={outcomeBusy || [draft.rationale, draft.applicability, draft.limitations, draft.title, draft.summary, draft.body].some((value) => value.trim().length < 3)} onClick={() => void proposeLessonPromotion(lesson.id)}>Propose promotion</button></div> : null}</> : <span>Promotion details are unavailable for your permissions.</span>}</div>;})}
                     {effectiveness.capabilities.lesson && effectiveness.capabilities.eligible ? <div className={styles.controlGroup}><textarea aria-label="Lesson learned" placeholder="Lesson learned" value={lessonText} onChange={(event) => setLessonText(event.target.value)} /><button className={styles.primaryAction} disabled={outcomeBusy || lessonText.length < 3} onClick={() => void outcomeAction("/lessons", {lesson_type: "execution", description: lessonText})}>Record lesson</button></div> : null}
                   </DashboardWidget>
                 </aside>

@@ -50,6 +50,18 @@ from app.modules.decisions.learning_schemas import (
     PrecedentEvaluationCreate,
     PrecedentEvaluationResponse,
 )
+from app.modules.decisions.promotion_repository import DecisionLessonPromotionRepository
+from app.modules.decisions.promotion_service import (
+    DecisionLessonPromotionService,
+    LessonPromotionStateError,
+)
+from app.modules.decisions.promotion_schemas import (
+    KnowledgeLessonProvenanceResponse,
+    LessonPromotionAction,
+    LessonPromotionCreate,
+    LessonPromotionResponse,
+    LessonPromotionWorkspaceResponse,
+)
 from app.modules.decisions.schemas import (
     ApprovalConditionResponse,
     ApprovalMutationResponse,
@@ -134,6 +146,14 @@ def get_learning_service(db: Session = Depends(get_db)) -> DecisionLearningServi
     )
 
 
+def get_promotion_service(
+    db: Session = Depends(get_db),
+) -> DecisionLessonPromotionService:
+    return DecisionLessonPromotionService(
+        DecisionLessonPromotionRepository(db), DecisionMemoryRepository(db)
+    )
+
+
 def map_failure(exc: Exception) -> HTTPException:
     if isinstance(exc, DecisionNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -155,7 +175,171 @@ def map_failure(exc: Exception) -> HTTPException:
         return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, LearningStateError):
         return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, LessonPromotionStateError):
+        return HTTPException(status_code=409, detail=str(exc))
     raise exc
+
+
+@router.get(
+    "/decisions/{decision_id}/lessons/{lesson_id}/promotions",
+    response_model=LessonPromotionWorkspaceResponse,
+)
+def lesson_promotion_workspace(
+    decision_id: str,
+    lesson_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionLessonPromotionService = Depends(get_promotion_service),
+):
+    try:
+        return service.workspace(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            lesson_id=lesson_id,
+            membership_id=principal.membership.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+        )
+    except (
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        LessonPromotionStateError,
+    ) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/lessons/{lesson_id}/promotions",
+    response_model=LessonPromotionResponse,
+    status_code=201,
+)
+def propose_lesson_promotion(
+    decision_id: str,
+    lesson_id: str,
+    body: LessonPromotionCreate,
+    principal: Principal = Depends(get_principal),
+    service: DecisionLessonPromotionService = Depends(get_promotion_service),
+):
+    try:
+        return service.propose(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            lesson_id=lesson_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            command=body,
+        )
+    except (
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        DecisionConflictError,
+        LessonPromotionStateError,
+    ) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/lessons/{lesson_id}/promotions/{proposal_id}/review/{action}",
+    response_model=LessonPromotionResponse,
+)
+def act_on_lesson_promotion(
+    decision_id: str,
+    lesson_id: str,
+    proposal_id: str,
+    action: Literal["approve", "reject", "withdraw"],
+    body: LessonPromotionAction,
+    principal: Principal = Depends(get_principal),
+    service: DecisionLessonPromotionService = Depends(get_promotion_service),
+):
+    try:
+        if action == "withdraw":
+            return service.withdraw(
+                tenant_id=principal.tenant_id,
+                decision_id=decision_id,
+                lesson_id=lesson_id,
+                proposal_id=proposal_id,
+                membership_id=principal.membership.id,
+                actor_id=principal.user.id,
+                clearance_rank=principal.membership.clearance_rank,
+                role_ids=principal.role_ids,
+                permissions=principal.permissions,
+                rationale=body.rationale,
+            )
+        return service.review(
+            action={"approve": "approved", "reject": "rejected"}[action],
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            lesson_id=lesson_id,
+            proposal_id=proposal_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+            rationale=body.rationale,
+        )
+    except (
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        LessonPromotionStateError,
+    ) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.post(
+    "/decisions/{decision_id}/lessons/{lesson_id}/promotions/{proposal_id}/promote",
+    response_model=LessonPromotionResponse,
+)
+def promote_lesson(
+    decision_id: str,
+    lesson_id: str,
+    proposal_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionLessonPromotionService = Depends(get_promotion_service),
+):
+    try:
+        return service.promote(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            lesson_id=lesson_id,
+            proposal_id=proposal_id,
+            membership_id=principal.membership.id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+        )
+    except (
+        DecisionNotFoundError,
+        DecisionPermissionError,
+        LessonPromotionStateError,
+    ) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get(
+    "/knowledge/{card_id}/decision-lesson-provenance",
+    response_model=KnowledgeLessonProvenanceResponse,
+)
+def knowledge_lesson_provenance(
+    card_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionLessonPromotionService = Depends(get_promotion_service),
+):
+    try:
+        return service.provenance(
+            tenant_id=principal.tenant_id,
+            card_id=card_id,
+            membership_id=principal.membership.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
 
 
 @router.get("/decisions/{decision_id}/precedents", response_model=PrecedentListResponse)

@@ -9,9 +9,11 @@ from app.models import (
     AuditEvent,
     IngestionJob,
     KnowledgeCard,
+    KnowledgeCardLessonProvenance,
     SourceDocument,
     Workspace,
 )
+from app.modules.knowledge.policies import authorized_knowledge_filters
 
 
 class KnowledgeRepository:
@@ -25,11 +27,14 @@ class KnowledgeRepository:
         *,
         tenant_id: str,
         clearance_rank: int,
+        role_ids: set[str],
         query: str = "",
     ) -> Sequence[KnowledgeCard]:
         stmt = select(KnowledgeCard).where(
             KnowledgeCard.tenant_id == tenant_id,
-            KnowledgeCard.classification_rank <= clearance_rank,
+            *authorized_knowledge_filters(
+                clearance_rank=clearance_rank, role_ids=role_ids
+            ),
         )
         normalized_query = query.strip()
         if normalized_query:
@@ -38,9 +43,20 @@ class KnowledgeRepository:
                 KnowledgeCard.title.ilike(pattern)
                 | KnowledgeCard.summary.ilike(pattern)
             )
-        return self._db.scalars(
-            stmt.order_by(KnowledgeCard.created_at.desc())
-        ).all()
+        return self._db.scalars(stmt.order_by(KnowledgeCard.created_at.desc())).all()
+
+    def provenances(self, *, tenant_id: str, card_ids: list[str]):
+        if not card_ids:
+            return {}
+        return {
+            item.knowledge_card_id: item
+            for item in self._db.scalars(
+                select(KnowledgeCardLessonProvenance).where(
+                    KnowledgeCardLessonProvenance.tenant_id == tenant_id,
+                    KnowledgeCardLessonProvenance.knowledge_card_id.in_(card_ids),
+                )
+            ).all()
+        }
 
     def get_workspace(
         self,
@@ -60,11 +76,16 @@ class KnowledgeRepository:
         *,
         card_id: str,
         tenant_id: str,
+        clearance_rank: int,
+        role_ids: set[str],
     ) -> KnowledgeCard | None:
         return self._db.scalar(
             select(KnowledgeCard).where(
                 KnowledgeCard.id == card_id,
                 KnowledgeCard.tenant_id == tenant_id,
+                *authorized_knowledge_filters(
+                    clearance_rank=clearance_rank, role_ids=role_ids
+                ),
             )
         )
 
@@ -99,8 +120,12 @@ class KnowledgeRepository:
         )
         return self._db.scalars(stmt).all()
 
-    def commit_card(self, card: KnowledgeCard) -> KnowledgeCard:
-        self._db.add(card)
-        self._db.commit()
+    def commit_card(self, card: KnowledgeCard, event: AuditEvent) -> KnowledgeCard:
+        try:
+            self._db.add_all([card, event])
+            self._db.commit()
+        except Exception:
+            self._db.rollback()
+            raise
         self._db.refresh(card)
         return card

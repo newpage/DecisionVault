@@ -27,6 +27,7 @@ def list_cards(
     return service.list_cards(
         tenant_id=principal.tenant_id,
         clearance_rank=principal.membership.clearance_rank,
+        role_ids=principal.role_ids,
         query=q,
     )
 
@@ -73,9 +74,17 @@ def submit(
         return service.submit_card(
             card_id=card_id,
             tenant_id=principal.tenant_id,
+            actor_id=principal.user.id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            can_submit=principal.can("knowledge.submit"),
         )
     except KnowledgeNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except KnowledgePermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except KnowledgeValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/knowledge/{card_id}/approve")
@@ -90,11 +99,15 @@ def approve(
             tenant_id=principal.tenant_id,
             approver_id=principal.user.id,
             can_approve=principal.can("knowledge.approve"),
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
         )
     except KnowledgeNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except KnowledgePermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except KnowledgeValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/knowledge/module/health", response_model=KnowledgeModuleStatus)

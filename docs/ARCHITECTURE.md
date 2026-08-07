@@ -164,3 +164,34 @@ not increment input revisions or stale approval reviews. Authorization-filtered
 usage aggregates are observational, not causal proof or predicted reliability,
 and never change `decision_similarity_v1`. The tenant-composite tables require a
 clean pre-release database recreation.
+
+## Governed lesson promotion
+
+Decision lessons, adoption and evaluation records, promotion proposals, and
+Knowledge Cards remain separate domain concepts. A lesson becomes eligible for
+promotion consideration only when its source Decision has completed
+effectiveness and a current, conclusive governed lesson evaluation is anchored
+to completed effectiveness on the evaluating Decision. Observed usefulness
+supports reuse consideration but does not prove universal applicability.
+
+Promotion is always an explicit human workflow:
+`proposed → approved → promoted`, with terminal `rejected` and `withdrawn`
+alternatives. Active proposals are unique per lesson evaluation; terminal rows
+remain immutable history. Approval creates no knowledge by itself. A separate
+promotion command atomically creates a draft, not-submitted Knowledge Card, its
+immutable Decision-learning provenance, the promoted proposal link, and audit
+events. Submission, review, approval, publication, and retirement continue
+through the existing Knowledge Card governance lifecycle; promotion neither
+publishes nor enables AI use.
+
+Proposal snapshots preserve the source Decision and lesson, adoption and
+evaluation, both relevant effectiveness assessments, referenced outcomes,
+applicability, limitations, provenance, classification, and access policy.
+Commands and reads require active tenant Membership, explicit lesson-promotion
+permissions, Decision visibility, classification clearance, and access-policy
+roles. Missing or unauthorized material returns the same not-found response.
+The draft inherits the highest applicable classification rank. A single
+restrictive access policy is inherited; incompatible restrictive policies fail
+closed because combining them would require broader generic policy semantics.
+These clean-schema tables require pre-release database recreation; no migration
+is provided.

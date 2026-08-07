@@ -33,6 +33,9 @@ LESSON_REJECT_PERMISSION = "decision.lesson.reject"
 LEARNING_VIEW_PERMISSION = "decision.learning.view"
 LEARNING_EVALUATE_PERMISSION = "decision.learning.evaluate"
 LEARNING_MANAGE_PERMISSION = "decision.learning.manage"
+LESSON_PROMOTION_VIEW_PERMISSION = "decision.lesson.promotion.view"
+LESSON_PROMOTE_PERMISSION = "decision.lesson.promote"
+LESSON_PROMOTION_REVIEW_PERMISSION = "decision.lesson.promotion.review"
 
 
 @dataclass(frozen=True)
