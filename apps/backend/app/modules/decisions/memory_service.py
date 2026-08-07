@@ -26,8 +26,9 @@ from app.modules.decisions.service import DecisionNotFoundError
 
 
 class DecisionMemoryService:
-    def __init__(self, repository: DecisionMemoryRepository) -> None:
+    def __init__(self, repository: DecisionMemoryRepository, learning=None) -> None:
         self._repository = repository
+        self._learning = learning
 
     def list_precedents(
         self,
@@ -37,6 +38,7 @@ class DecisionMemoryService:
         clearance_rank: int,
         role_ids: set[str],
         permissions: set[str],
+        membership_id: str | None = None,
         minimum_relevance: str = "weakly_relevant",
         limit: int = 10,
         date_from: date | None = None,
@@ -86,6 +88,7 @@ class DecisionMemoryService:
                     clearance_rank,
                     role_ids,
                     permissions,
+                    membership_id,
                 )
             )
         results.sort(
@@ -113,6 +116,7 @@ class DecisionMemoryService:
         clearance_rank: int,
         role_ids: set[str],
         permissions: set[str],
+        membership_id: str | None = None,
     ) -> DecisionComparisonResponse:
         authorize_view(permissions)
         authorize_memory_view(permissions)
@@ -220,6 +224,15 @@ class DecisionMemoryService:
             historical_governance=governance,
             historical_outcome=outcome,
             historical_lessons=lessons,
+            observed_usage=self._usage(
+                tenant_id,
+                historical.id,
+                clearance_rank,
+                role_ids,
+                permissions,
+                lessons or [],
+                membership_id,
+            ),
         )
 
     def _profile(self, decision, clearance_rank, role_ids, permissions):
@@ -233,7 +246,14 @@ class DecisionMemoryService:
         )
 
     def _result(
-        self, tenant_id, historical, comparison, clearance_rank, role_ids, permissions
+        self,
+        tenant_id,
+        historical,
+        comparison,
+        clearance_rank,
+        role_ids,
+        permissions,
+        membership_id,
     ):
         return PrecedentResultResponse(
             historical_decision=self._summary(
@@ -245,7 +265,55 @@ class DecisionMemoryService:
             similarity_components=comparison["components"],
             shared_characteristics=comparison["shared_characteristics"],
             different_characteristics=comparison["different_characteristics"],
+            observed_usage=self._usage(
+                tenant_id,
+                historical.id,
+                clearance_rank,
+                role_ids,
+                permissions,
+                [],
+                membership_id,
+            ),
         )
+
+    def _usage(
+        self,
+        tenant_id,
+        historical_decision_id,
+        clearance_rank,
+        role_ids,
+        permissions,
+        lessons,
+        membership_id,
+    ):
+        if (
+            self._learning is None
+            or membership_id is None
+            or "decision.learning.view" not in permissions
+            or OUTCOME_VIEW_PERMISSION not in permissions
+        ):
+            return None
+        decision_usage = self._learning.usage(
+            tenant_id=tenant_id,
+            historical_decision_id=historical_decision_id,
+            membership_id=membership_id,
+            clearance_rank=clearance_rank,
+            role_ids=role_ids,
+            permissions=permissions,
+        ).model_dump()
+        lesson_usage = {
+            lesson["id"]: self._learning.lesson_usage(
+                tenant_id=tenant_id,
+                historical_decision_id=historical_decision_id,
+                historical_lesson_id=lesson["id"],
+                membership_id=membership_id,
+                clearance_rank=clearance_rank,
+                role_ids=role_ids,
+                permissions=permissions,
+            ).model_dump()
+            for lesson in lessons
+        }
+        return {"decision": decision_usage, "lessons": lesson_usage}
 
     def _summary(self, tenant_id, historical, clearance_rank, role_ids, permissions):
         evidence = (

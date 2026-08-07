@@ -83,7 +83,6 @@ class FakeService:
             "input_revision": 6,
             "adoption": {
                 **adoption(),
-                "status": "superseded",
                 "superseded_at": NOW,
                 "superseded_by_membership_id": "member-1",
                 "supersession_rationale": kwargs["rationale"],
@@ -102,6 +101,7 @@ def client():
         role_ids={"role-1"},
         permissions={
             "decision.view",
+            "decision.edit",
             "decision.memory.view",
             "decision.precedent.view",
             "decision.precedent.manage",
@@ -154,13 +154,12 @@ def test_lesson_choice_and_supersession_endpoints():
         },
     )
     assert created.status_code == 201
-    assert (
-        api.post(
-            "/decisions/current/lesson-adoptions/adoption-1/supersede",
-            json={"rationale": "Reconsidered"},
-        ).json()["adoption"]["status"]
-        == "superseded"
-    )
+    superseded = api.post(
+        "/decisions/current/lesson-adoptions/adoption-1/supersede",
+        json={"rationale": "Reconsidered"},
+    ).json()["adoption"]
+    assert superseded["status"] == "rejected"
+    assert superseded["superseded_at"] is not None
 
 
 def test_controlled_values_and_rationales_are_validated_at_api_boundary():

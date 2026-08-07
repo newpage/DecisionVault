@@ -70,6 +70,19 @@ class DecisionService:
         authorize_view(permissions)
         authorize_evidence_view(permissions)
         decision = self._require_decision(tenant_id=tenant_id, decision_id=decision_id)
+        if getattr(decision, "classification_rank", 0) > clearance_rank:
+            raise DecisionNotFoundError("Decision not found")
+        access_policy_id = getattr(decision, "access_policy_id", None)
+        if (
+            access_policy_id
+            and self._repository.get_authorized_access_policy(
+                tenant_id=tenant_id,
+                policy_id=access_policy_id,
+                role_ids=role_ids,
+            )
+            is None
+        ):
+            raise DecisionNotFoundError("Decision not found")
         concept = (
             self._repository.get_concept(
                 tenant_id=tenant_id,

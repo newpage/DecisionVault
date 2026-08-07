@@ -5,9 +5,11 @@ from app.models import (
     DecisionEffectivenessAssessment,
     DecisionLessonAdoption,
     DecisionLessonEvaluation,
+    DecisionExpectedOutcome,
     DecisionPrecedentEvaluation,
     DecisionPrecedentReference,
     Membership,
+    uid,
     utcnow,
 )
 
@@ -41,6 +43,7 @@ class DecisionLearningRepository:
                 DecisionPrecedentReference.tenant_id == tenant_id,
                 DecisionPrecedentReference.decision_case_id == decision_id,
                 DecisionPrecedentReference.id == reference_id,
+                DecisionPrecedentReference.removed_at.is_(None),
             )
         )
 
@@ -50,6 +53,8 @@ class DecisionLearningRepository:
                 DecisionLessonAdoption.tenant_id == tenant_id,
                 DecisionLessonAdoption.decision_case_id == decision_id,
                 DecisionLessonAdoption.id == adoption_id,
+                DecisionLessonAdoption.status.in_({"adopted", "rejected"}),
+                DecisionLessonAdoption.superseded_at.is_(None),
             )
         )
 
@@ -116,6 +121,29 @@ class DecisionLearningRepository:
             ).all()
         )
 
+    def adoptions_to_lesson(self, tenant_id, lesson_id):
+        return list(
+            self._db.scalars(
+                select(DecisionLessonAdoption).where(
+                    DecisionLessonAdoption.tenant_id == tenant_id,
+                    DecisionLessonAdoption.historical_lesson_id == lesson_id,
+                )
+            ).all()
+        )
+
+    def valid_outcome_ids(self, tenant_id, decision_id, outcome_ids):
+        if not outcome_ids:
+            return set()
+        return set(
+            self._db.scalars(
+                select(DecisionExpectedOutcome.id).where(
+                    DecisionExpectedOutcome.tenant_id == tenant_id,
+                    DecisionExpectedOutcome.decision_case_id == decision_id,
+                    DecisionExpectedOutcome.id.in_(outcome_ids),
+                )
+            ).all()
+        )
+
     def save(self, record, event):
         try:
             self._db.add(record)
@@ -130,6 +158,7 @@ class DecisionLearningRepository:
 
     def supersede(self, old, replacement, event, membership_id, rationale):
         try:
+            replacement.id = replacement.id or uid()
             old.superseded_by_evaluation_id = replacement.id
             old.superseded_by_membership_id = membership_id
             old.superseded_at = utcnow()

@@ -83,6 +83,7 @@ class DecisionPrecedentRepository:
                 DecisionLessonAdoption.tenant_id == tenant_id,
                 DecisionLessonAdoption.decision_case_id == decision_id,
                 DecisionLessonAdoption.id == adoption_id,
+                DecisionLessonAdoption.superseded_at.is_(None),
             )
         )
 

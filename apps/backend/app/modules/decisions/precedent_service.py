@@ -7,6 +7,7 @@ from app.modules.decisions.memory import compare_profiles
 from app.modules.decisions.memory_repository import DecisionMemoryRepository
 from app.modules.decisions.policies import (
     OUTCOME_VIEW_PERMISSION,
+    authorize_edit,
     authorize_view,
     require_permission,
 )
@@ -52,6 +53,14 @@ class DecisionPrecedentService:
             for item in self._repository.list_precedents(
                 tenant_id=tenant_id, decision_id=decision_id, history=history
             )
+            if self._memory.get_historical_decision(
+                tenant_id=tenant_id,
+                current_decision_id=decision_id,
+                historical_decision_id=item.historical_decision_id,
+                clearance_rank=clearance_rank,
+                role_ids=role_ids,
+            )
+            is not None
         ]
 
     def attach(
@@ -67,6 +76,7 @@ class DecisionPrecedentService:
         command,
     ):
         authorize_view(permissions)
+        authorize_edit(permissions)
         require_permission(permissions, "decision.memory.view")
         require_permission(permissions, "decision.precedent.manage")
         rationale = self._text(command.rationale, "Attachment rationale")
@@ -178,6 +188,7 @@ class DecisionPrecedentService:
         rationale,
     ):
         authorize_view(permissions)
+        authorize_edit(permissions)
         require_permission(permissions, "decision.precedent.manage")
         decision = self._editable_decision(
             tenant_id, decision_id, membership_id, clearance_rank, role_ids
@@ -229,6 +240,14 @@ class DecisionPrecedentService:
             for item in self._repository.list_adoptions(
                 tenant_id=tenant_id, decision_id=decision_id
             )
+            if self._memory.get_historical_decision(
+                tenant_id=tenant_id,
+                current_decision_id=decision_id,
+                historical_decision_id=item.historical_decision_id,
+                clearance_rank=clearance_rank,
+                role_ids=role_ids,
+            )
+            is not None
         ]
 
     def adopt_or_reject(
@@ -244,6 +263,7 @@ class DecisionPrecedentService:
         command,
     ):
         authorize_view(permissions)
+        authorize_edit(permissions)
         require_permission(permissions, OUTCOME_VIEW_PERMISSION)
         require_permission(
             permissions,
@@ -331,6 +351,7 @@ class DecisionPrecedentService:
         rationale,
     ):
         authorize_view(permissions)
+        authorize_edit(permissions)
         require_permission(permissions, "decision.lesson.adopt")
         require_permission(permissions, "decision.lesson.reject")
         decision = self._editable_decision(
@@ -339,12 +360,22 @@ class DecisionPrecedentService:
         record = self._repository.adoption(
             tenant_id=tenant_id, decision_id=decision.id, adoption_id=adoption_id
         )
-        if record is None or record.status == "superseded":
+        if record is None:
+            raise DecisionNotFoundError("Lesson adoption not found")
+        if (
+            self._memory.get_historical_decision(
+                tenant_id=tenant_id,
+                current_decision_id=decision.id,
+                historical_decision_id=record.historical_decision_id,
+                clearance_rank=clearance_rank,
+                role_ids=role_ids,
+            )
+            is None
+        ):
             raise DecisionNotFoundError("Lesson adoption not found")
         rationale = self._text(rationale, "Supersession rationale")
         before = decision.input_revision
         decision.input_revision += 1
-        record.status = "superseded"
         record.superseded_at = datetime.now(timezone.utc)
         record.superseded_by_membership_id = membership_id
         record.supersession_rationale = rationale

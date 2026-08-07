@@ -37,6 +37,7 @@ class PrecedentResultResponse(BaseModel):
     similarity_components: dict[str, SimilarityComponentResponse]
     shared_characteristics: list[str]
     different_characteristics: list[str]
+    observed_usage: dict | None = None
 
 
 class PrecedentListResponse(BaseModel):
@@ -59,3 +60,4 @@ class DecisionComparisonResponse(BaseModel):
     historical_governance: dict | None
     historical_outcome: dict | None
     historical_lessons: list[dict] | None
+    observed_usage: dict | None = None

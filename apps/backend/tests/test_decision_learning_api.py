@@ -6,13 +6,18 @@ from fastapi.testclient import TestClient
 
 from app.deps import get_principal
 from app.modules.decisions.router import get_learning_service, router
+from app.modules.decisions.service import DecisionNotFoundError
 
 
 NOW = datetime.now(timezone.utc).isoformat()
 
 
 class FakeLearningService:
+    failure = None
+
     def workspace(self, **kwargs):
+        if self.failure:
+            raise self.failure
         return {"precedent_evaluations": [], "lesson_evaluations": []}
 
     def evaluate_precedent(self, **kwargs):
@@ -56,6 +61,8 @@ class FakeLearningService:
         }
 
     def usage(self, **kwargs):
+        if self.failure:
+            raise self.failure
         return {
             "historical_decision_id": kwargs["historical_decision_id"],
             "referenced_count": 3,
@@ -79,6 +86,24 @@ def client():
             "decision.outcome.view",
             "decision.learning.view",
             "decision.learning.evaluate",
+        },
+    )
+    return TestClient(app)
+
+
+def client_with(service):
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_learning_service] = lambda: service
+    app.dependency_overrides[get_principal] = lambda: SimpleNamespace(
+        tenant_id="tenant",
+        membership=SimpleNamespace(id="member", clearance_rank=50),
+        user=SimpleNamespace(id="user"),
+        role_ids=set(),
+        permissions={
+            "decision.view",
+            "decision.outcome.view",
+            "decision.learning.view",
         },
     )
     return TestClient(app)
@@ -132,3 +157,11 @@ def test_learning_classifications_are_controlled():
         },
     )
     assert response.status_code == 422
+
+
+def test_restricted_learning_resources_return_non_disclosing_404():
+    service = FakeLearningService()
+    service.failure = DecisionNotFoundError("Decision not found")
+    response = client_with(service).get("/decision-memory/restricted/usage")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Decision not found"}

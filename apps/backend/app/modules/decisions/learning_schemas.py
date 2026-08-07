@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PrecedentEvaluationCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     effectiveness_assessment_id: str
     classification: Literal[
         "highly_useful",
@@ -16,10 +17,11 @@ class PrecedentEvaluationCreate(BaseModel):
         "too_early",
     ]
     rationale: str = Field(min_length=3)
-    outcome_alignment_details: dict = {}
+    outcome_alignment_details: dict = Field(default_factory=dict)
 
 
 class LessonEvaluationCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     effectiveness_assessment_id: str
     classification: Literal[
         "beneficial",
@@ -33,11 +35,12 @@ class LessonEvaluationCreate(BaseModel):
     ]
     rationale: str = Field(min_length=3)
     was_applied: bool | None = None
-    relevant_outcome_ids: list[str] = []
-    outcome_relevance_details: dict = {}
+    relevant_outcome_ids: list[str] = Field(default_factory=list)
+    outcome_relevance_details: dict = Field(default_factory=dict)
 
 
 class EvaluationSupersede(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     supersession_rationale: str = Field(min_length=3)
     classification: str
     rationale: str = Field(min_length=3)
@@ -90,3 +93,11 @@ class HistoricalUsageResponse(BaseModel):
     evaluated_count: int
     classification_counts: dict[str, int]
     current_outcome_distribution: dict[str, int]
+
+
+class LessonUsageResponse(BaseModel):
+    historical_lesson_id: str
+    adopted_count: int
+    rejected_count: int
+    evaluated_count: int
+    classification_counts: dict[str, int]

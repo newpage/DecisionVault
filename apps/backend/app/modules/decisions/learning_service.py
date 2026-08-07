@@ -9,6 +9,7 @@ from app.models import (
 from app.modules.decisions.learning_schemas import (
     DecisionLearningResponse,
     HistoricalUsageResponse,
+    LessonUsageResponse,
     LessonEvaluationResponse,
     PrecedentEvaluationResponse,
 )
@@ -26,23 +27,40 @@ class DecisionLearningService:
         self._memory = memory
 
     def workspace(
-        self, *, tenant_id, decision_id, clearance_rank, role_ids, permissions
+        self,
+        *,
+        tenant_id,
+        decision_id,
+        membership_id,
+        clearance_rank,
+        role_ids,
+        permissions,
     ):
         self._authorize_view(permissions)
-        self._visible(tenant_id, decision_id, clearance_rank, role_ids)
+        self._ready(tenant_id, decision_id, membership_id, clearance_rank, role_ids)
+        precedents = []
+        for item in self._repository.list_precedent_evaluations(tenant_id, decision_id):
+            if self._historical_or_none(
+                tenant_id,
+                decision_id,
+                item.historical_decision_id,
+                clearance_rank,
+                role_ids,
+            ):
+                precedents.append(PrecedentEvaluationResponse.model_validate(item))
+        lessons = []
+        for item in self._repository.list_lesson_evaluations(tenant_id, decision_id):
+            if self._historical_or_none(
+                tenant_id,
+                decision_id,
+                item.historical_decision_id,
+                clearance_rank,
+                role_ids,
+            ):
+                lessons.append(LessonEvaluationResponse.model_validate(item))
         return DecisionLearningResponse(
-            precedent_evaluations=[
-                PrecedentEvaluationResponse.model_validate(x)
-                for x in self._repository.list_precedent_evaluations(
-                    tenant_id, decision_id
-                )
-            ],
-            lesson_evaluations=[
-                LessonEvaluationResponse.model_validate(x)
-                for x in self._repository.list_lesson_evaluations(
-                    tenant_id, decision_id
-                )
-            ],
+            precedent_evaluations=precedents,
+            lesson_evaluations=lessons,
         )
 
     def evaluate_precedent(
@@ -130,18 +148,11 @@ class DecisionLearningService:
         assessment = self._assessment(
             tenant_id, decision_id, command.effectiveness_assessment_id
         )
-        if adoption.status == "rejected" and command.classification not in {
-            "appropriate_rejection",
-            "neutral",
-            "potentially_costly_rejection",
-            "inconclusive",
-        }:
-            raise LearningStateError("Invalid classification for a rejected lesson")
-        if adoption.status == "adopted" and command.classification in {
-            "appropriate_rejection",
-            "potentially_costly_rejection",
-        }:
-            raise LearningStateError("Invalid classification for an adopted lesson")
+        if set(command.relevant_outcome_ids) != self._repository.valid_outcome_ids(
+            tenant_id, decision_id, command.relevant_outcome_ids
+        ):
+            raise DecisionNotFoundError("Outcome reference not found")
+        self._validate_lesson_classification(adoption.status, command.classification)
         record = DecisionLessonEvaluation(
             tenant_id=tenant_id,
             decision_case_id=decision_id,
@@ -173,9 +184,16 @@ class DecisionLearningService:
         clearance_rank,
         role_ids,
         permissions,
+        membership_id,
     ):
         self._authorize_view(permissions)
-        self._visible(tenant_id, historical_decision_id, clearance_rank, role_ids)
+        self._ready(
+            tenant_id,
+            historical_decision_id,
+            membership_id,
+            clearance_rank,
+            role_ids,
+        )
         visible_refs = []
         for ref in self._repository.references_to(tenant_id, historical_decision_id):
             if self._memory.get_decision(
@@ -225,8 +243,16 @@ class DecisionLearningService:
         old = self._repository.precedent_evaluation(
             tenant_id, decision_id, reference_id
         )
+
         if old is None:
             raise DecisionNotFoundError("Precedent evaluation not found")
+        self._historical(
+            tenant_id,
+            decision_id,
+            old.historical_decision_id,
+            clearance_rank,
+            role_ids,
+        )
         allowed = {
             "highly_useful",
             "useful",
@@ -259,6 +285,7 @@ class DecisionLearningService:
             "decision.precedent.evaluation_superseded",
             membership_id,
         )
+        event.details["supersession_rationale"] = command.supersession_rationale
         return PrecedentEvaluationResponse.model_validate(
             self._repository.supersede(
                 old,
@@ -267,6 +294,55 @@ class DecisionLearningService:
                 membership_id,
                 command.supersession_rationale.strip(),
             )
+        )
+
+    def lesson_usage(
+        self,
+        *,
+        tenant_id,
+        historical_decision_id,
+        historical_lesson_id,
+        membership_id,
+        clearance_rank,
+        role_ids,
+        permissions,
+    ):
+        self._authorize_view(permissions)
+        self._ready(
+            tenant_id,
+            historical_decision_id,
+            membership_id,
+            clearance_rank,
+            role_ids,
+        )
+        adopted = rejected = evaluated = 0
+        counts = {}
+        for adoption in self._repository.adoptions_to_lesson(
+            tenant_id, historical_lesson_id
+        ):
+            if not self._memory.get_decision(
+                tenant_id=tenant_id,
+                decision_id=adoption.decision_case_id,
+                clearance_rank=clearance_rank,
+                role_ids=role_ids,
+            ):
+                continue
+            if adoption.status == "adopted":
+                adopted += 1
+            else:
+                rejected += 1
+            item = self._repository.lesson_evaluation(
+                tenant_id, adoption.decision_case_id, adoption.id
+            )
+            if item:
+                evaluated += 1
+                counts[item.classification] = counts.get(item.classification, 0) + 1
+        return LessonUsageResponse(
+            historical_lesson_id=historical_lesson_id,
+            adopted_count=adopted,
+            rejected_count=rejected,
+            evaluated_count=evaluated,
+            classification_counts=counts,
         )
 
     def supersede_lesson(
@@ -288,6 +364,16 @@ class DecisionLearningService:
         old = self._repository.lesson_evaluation(tenant_id, decision_id, adoption_id)
         if old is None:
             raise DecisionNotFoundError("Lesson evaluation not found")
+        self._historical(
+            tenant_id,
+            decision_id,
+            old.historical_decision_id,
+            clearance_rank,
+            role_ids,
+        )
+        adoption = self._repository.adoption(tenant_id, decision_id, adoption_id)
+        if adoption is None:
+            raise DecisionNotFoundError("Lesson adoption not found")
         allowed = {
             "beneficial",
             "neutral",
@@ -300,6 +386,7 @@ class DecisionLearningService:
         }
         if command.classification not in allowed:
             raise LearningStateError("Invalid lesson evaluation classification")
+        self._validate_lesson_classification(adoption.status, command.classification)
         replacement = DecisionLessonEvaluation(
             id=uid(),
             tenant_id=tenant_id,
@@ -321,6 +408,7 @@ class DecisionLearningService:
             "decision.lesson.evaluation_superseded",
             membership_id,
         )
+        event.details["supersession_rationale"] = command.supersession_rationale
         return LessonEvaluationResponse.model_validate(
             self._repository.supersede(
                 old,
@@ -349,9 +437,19 @@ class DecisionLearningService:
             description=event_type.replace(".", " ").title(),
             details={
                 "historical_decision_id": record.historical_decision_id,
+                "precedent_reference_id": getattr(
+                    record, "precedent_reference_id", None
+                ),
+                "lesson_adoption_id": getattr(record, "lesson_adoption_id", None),
                 "evaluation_classification": record.classification,
+                "evaluation_rationale": record.rationale,
                 "effectiveness_assessment_id": record.effectiveness_assessment_id,
                 "evaluator_membership_id": membership_id,
+                "deterministic_context": getattr(
+                    record,
+                    "outcome_alignment_details",
+                    getattr(record, "outcome_relevance_details", {}),
+                ),
             },
         )
 
@@ -379,6 +477,33 @@ class DecisionLearningService:
         if item is None:
             raise DecisionNotFoundError("Historical Decision not found")
         return item
+
+    def _historical_or_none(
+        self, tenant_id, decision_id, historical_id, clearance_rank, role_ids
+    ):
+        return self._memory.get_historical_decision(
+            tenant_id=tenant_id,
+            current_decision_id=decision_id,
+            historical_decision_id=historical_id,
+            clearance_rank=clearance_rank,
+            role_ids=role_ids,
+        )
+
+    @staticmethod
+    def _validate_lesson_classification(status, classification):
+        rejection_values = {
+            "appropriate_rejection",
+            "neutral",
+            "potentially_costly_rejection",
+            "inconclusive",
+        }
+        if status == "rejected" and classification not in rejection_values:
+            raise LearningStateError("Invalid classification for a rejected lesson")
+        if status == "adopted" and classification in {
+            "appropriate_rejection",
+            "potentially_costly_rejection",
+        }:
+            raise LearningStateError("Invalid classification for an adopted lesson")
 
     def _visible(self, tenant_id, decision_id, clearance_rank, role_ids):
         item = self._memory.get_decision(

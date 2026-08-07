@@ -7,16 +7,18 @@ from pydantic import BaseModel, ConfigDict, Field
 RelationshipType = Literal[
     "supporting", "cautionary", "analogous", "exception", "contrary"
 ]
-AdoptionStatus = Literal["adopted", "rejected", "superseded"]
+AdoptionStatus = Literal["adopted", "rejected"]
 
 
 class PrecedentAttach(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     historical_decision_id: str
     relationship_type: RelationshipType
     rationale: str = Field(min_length=3)
 
 
 class PrecedentRemove(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     rationale: str = Field(min_length=3)
 
 
@@ -49,6 +51,7 @@ class PrecedentMutationResponse(BaseModel):
 
 
 class LessonAdoptionCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     historical_decision_id: str
     historical_lesson_id: str
     status: Literal["adopted", "rejected"]
@@ -57,6 +60,7 @@ class LessonAdoptionCreate(BaseModel):
 
 
 class LessonAdoptionSupersede(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     rationale: str = Field(min_length=3)
 
 

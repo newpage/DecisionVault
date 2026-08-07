@@ -21,6 +21,7 @@ def result_item():
         "overall_similarity": 84.5, "relevance": "strongly_relevant", "algorithm_version": "decision_similarity_v1",
         "similarity_components": {"business_concept": {"score": 1, "weight": 0.2, "weighted_points": 20, "available": True, "explanation": "Same Business Concept"}},
         "shared_characteristics": ["Business Concept"], "different_characteristics": ["Effectiveness classification differs"],
+        "observed_usage": {"decision": {"historical_decision_id": "historical-1", "referenced_count": 3, "evaluated_count": 2, "classification_counts": {"useful": 1, "misleading": 1}, "current_outcome_distribution": {"met": 2}}, "lessons": {}},
     }
 
 
@@ -37,14 +38,14 @@ class FakeMemoryService:
     def compare(self, **kwargs):
         if self.failure:
             raise self.failure
-        return {"current_decision": {"id": kwargs["decision_id"], "title": "Current", "status": "in_review", "business_concept_id": "concept-1"}, **result_item(), "historical_governance": {"approval_actions": ["approved"]}, "historical_outcome": {"effectiveness_classification": "did_not_meet"}, "historical_lessons": [{"type": "risk", "description": "Dependency was underestimated", "business_impact": "Delay"}]}
+        return {"current_decision": {"id": kwargs["decision_id"], "title": "Current", "status": "in_review", "business_concept_id": "concept-1"}, **result_item(), "historical_governance": {"approval_actions": ["approved"]}, "historical_outcome": {"effectiveness_classification": "did_not_meet"}, "historical_lessons": [{"id": "lesson-1", "type": "risk", "description": "Dependency was underestimated", "business_impact": "Delay"}]}
 
 
 def client(service):
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_memory_service] = lambda: service
-    app.dependency_overrides[get_principal] = lambda: SimpleNamespace(tenant_id="tenant-1", membership=SimpleNamespace(clearance_rank=30), role_ids={"role-1"}, permissions={"decision.view", "decision.memory.view"})
+    app.dependency_overrides[get_principal] = lambda: SimpleNamespace(tenant_id="tenant-1", membership=SimpleNamespace(id="member-1", clearance_rank=30), role_ids={"role-1"}, permissions={"decision.view", "decision.memory.view"})
     return TestClient(app)
 
 
@@ -54,6 +55,8 @@ def test_precedent_listing_filters_and_explicit_dto():
     assert response.status_code == 200
     assert response.json()["items"][0]["historical_decision"]["effectiveness_classification"] == "did_not_meet"
     assert response.json()["items"][0]["algorithm_version"] == "decision_similarity_v1"
+    assert response.json()["items"][0]["observed_usage"]["decision"]["referenced_count"] == 3
+    assert response.json()["items"][0]["overall_similarity"] == 84.5
     assert service.call["minimum_relevance"] == "relevant"
     assert service.call["limit"] == 5
 

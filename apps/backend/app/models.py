@@ -1007,6 +1007,12 @@ class DecisionEffectivenessAssessment(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
         UniqueConstraint(
+            "tenant_id",
+            "id",
+            "decision_case_id",
+            name="uq_assessment_tenant_id_decision",
+        ),
+        UniqueConstraint(
             "tenant_id", "decision_case_id", "revision", name="uq_assessment_revision"
         ),
         ForeignKeyConstraint(
@@ -1152,6 +1158,13 @@ class DecisionPrecedentReference(Base):
     removal_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            "decision_case_id",
+            "historical_decision_id",
+            name="uq_precedent_tenant_id_decisions",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "decision_case_id"],
             ["decision_cases.tenant_id", "decision_cases.id"],
@@ -1228,6 +1241,13 @@ class DecisionLessonAdoption(Base):
     supersession_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
+        UniqueConstraint(
+            "tenant_id",
+            "id",
+            "decision_case_id",
+            "historical_decision_id",
+            name="uq_adoption_tenant_id_decisions",
+        ),
         ForeignKeyConstraint(
             ["tenant_id", "decision_case_id"],
             ["decision_cases.tenant_id", "decision_cases.id"],
@@ -1257,12 +1277,10 @@ class DecisionLessonAdoption(Base):
         CheckConstraint(
             "decision_case_id != historical_decision_id", name="ck_adoption_not_self"
         ),
-        CheckConstraint(
-            "status IN ('adopted','rejected','superseded')", name="ck_adoption_status"
-        ),
+        CheckConstraint("status IN ('adopted','rejected')", name="ck_adoption_status"),
         CheckConstraint("length(trim(rationale)) > 0", name="ck_adoption_rationale"),
         CheckConstraint(
-            "(status != 'superseded') OR (superseded_at IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)",
+            "(superseded_at IS NULL AND superseded_by_membership_id IS NULL AND supersession_rationale IS NULL) OR (superseded_at IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)",
             name="ck_adoption_supersession",
         ),
         Index(
@@ -1271,8 +1289,8 @@ class DecisionLessonAdoption(Base):
             "decision_case_id",
             "historical_lesson_id",
             unique=True,
-            postgresql_where=text("status IN ('adopted','rejected')"),
-            sqlite_where=text("status IN ('adopted','rejected')"),
+            postgresql_where=text("superseded_at IS NULL"),
+            sqlite_where=text("superseded_at IS NULL"),
         ),
     )
 
@@ -1280,7 +1298,9 @@ class DecisionLessonAdoption(Base):
 class DecisionPrecedentEvaluation(Base):
     __tablename__ = "decision_precedent_evaluations"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
     decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
     precedent_reference_id: Mapped[str] = mapped_column(String(36), index=True)
     historical_decision_id: Mapped[str] = mapped_column(String(36), index=True)
@@ -1288,36 +1308,114 @@ class DecisionPrecedentEvaluation(Base):
     classification: Mapped[str] = mapped_column(String(30), index=True)
     rationale: Mapped[str] = mapped_column(Text)
     evaluator_membership_id: Mapped[str] = mapped_column(String(36), index=True)
-    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
     similarity_score_snapshot: Mapped[float] = mapped_column(Float)
-    historical_effectiveness_snapshot: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    historical_effectiveness_snapshot: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
     current_effectiveness_snapshot: Mapped[str] = mapped_column(String(30))
     outcome_alignment_details: Mapped[dict] = mapped_column(JSON, default=dict)
-    superseded_by_evaluation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    superseded_by_membership_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_by_evaluation_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    superseded_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     supersession_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
-        ForeignKeyConstraint(["tenant_id", "decision_case_id"], ["decision_cases.tenant_id", "decision_cases.id"], ondelete="CASCADE", name="fk_precedent_eval_tenant_decision"),
-        ForeignKeyConstraint(["tenant_id", "precedent_reference_id"], ["decision_precedent_references.tenant_id", "decision_precedent_references.id"], name="fk_precedent_eval_tenant_reference"),
-        ForeignKeyConstraint(["tenant_id", "historical_decision_id"], ["decision_cases.tenant_id", "decision_cases.id"], name="fk_precedent_eval_tenant_historical"),
-        ForeignKeyConstraint(["tenant_id", "effectiveness_assessment_id"], ["decision_effectiveness_assessments.tenant_id", "decision_effectiveness_assessments.id"], name="fk_precedent_eval_tenant_assessment"),
-        ForeignKeyConstraint(["tenant_id", "evaluator_membership_id"], ["memberships.tenant_id", "memberships.id"], name="fk_precedent_eval_tenant_evaluator"),
-        ForeignKeyConstraint(["tenant_id", "superseded_by_evaluation_id"], ["decision_precedent_evaluations.tenant_id", "decision_precedent_evaluations.id"], name="fk_precedent_eval_tenant_supersession"),
-        ForeignKeyConstraint(["tenant_id", "superseded_by_membership_id"], ["memberships.tenant_id", "memberships.id"], name="fk_precedent_eval_tenant_superseder"),
-        CheckConstraint("classification IN ('highly_useful','useful','neutral','misleading','harmful','inconclusive','too_early')", name="ck_precedent_eval_classification"),
-        CheckConstraint("length(trim(rationale)) > 0", name="ck_precedent_eval_rationale"),
-        CheckConstraint("similarity_score_snapshot >= 0 AND similarity_score_snapshot <= 100", name="ck_precedent_eval_similarity"),
-        CheckConstraint("(superseded_at IS NULL AND superseded_by_evaluation_id IS NULL AND superseded_by_membership_id IS NULL AND supersession_rationale IS NULL) OR (superseded_at IS NOT NULL AND superseded_by_evaluation_id IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)", name="ck_precedent_eval_supersession"),
-        Index("uq_active_precedent_evaluation", "tenant_id", "precedent_reference_id", unique=True, postgresql_where=text("superseded_at IS NULL"), sqlite_where=text("superseded_at IS NULL")),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_precedent_eval_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "precedent_reference_id",
+                "decision_case_id",
+                "historical_decision_id",
+            ],
+            [
+                "decision_precedent_references.tenant_id",
+                "decision_precedent_references.id",
+                "decision_precedent_references.decision_case_id",
+                "decision_precedent_references.historical_decision_id",
+            ],
+            name="fk_precedent_eval_tenant_reference",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "historical_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            name="fk_precedent_eval_tenant_historical",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "effectiveness_assessment_id", "decision_case_id"],
+            [
+                "decision_effectiveness_assessments.tenant_id",
+                "decision_effectiveness_assessments.id",
+                "decision_effectiveness_assessments.decision_case_id",
+            ],
+            name="fk_precedent_eval_tenant_assessment",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "evaluator_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_precedent_eval_tenant_evaluator",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_evaluation_id"],
+            [
+                "decision_precedent_evaluations.tenant_id",
+                "decision_precedent_evaluations.id",
+            ],
+            name="fk_precedent_eval_tenant_supersession",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_precedent_eval_tenant_superseder",
+        ),
+        CheckConstraint(
+            "classification IN ('highly_useful','useful','neutral','misleading','harmful','inconclusive','too_early')",
+            name="ck_precedent_eval_classification",
+        ),
+        CheckConstraint(
+            "length(trim(rationale)) > 0", name="ck_precedent_eval_rationale"
+        ),
+        CheckConstraint(
+            "similarity_score_snapshot >= 0 AND similarity_score_snapshot <= 100",
+            name="ck_precedent_eval_similarity",
+        ),
+        CheckConstraint(
+            "(superseded_at IS NULL AND superseded_by_evaluation_id IS NULL AND superseded_by_membership_id IS NULL AND supersession_rationale IS NULL) OR (superseded_at IS NOT NULL AND superseded_by_evaluation_id IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)",
+            name="ck_precedent_eval_supersession",
+        ),
+        Index(
+            "uq_active_precedent_evaluation",
+            "tenant_id",
+            "precedent_reference_id",
+            unique=True,
+            postgresql_where=text("superseded_at IS NULL"),
+            sqlite_where=text("superseded_at IS NULL"),
+        ),
     )
 
 
 class DecisionLessonEvaluation(Base):
     __tablename__ = "decision_lesson_evaluations"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+    )
     decision_case_id: Mapped[str] = mapped_column(String(36), index=True)
     lesson_adoption_id: Mapped[str] = mapped_column(String(36), index=True)
     historical_decision_id: Mapped[str] = mapped_column(String(36), index=True)
@@ -1327,26 +1425,92 @@ class DecisionLessonEvaluation(Base):
     was_applied: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     relevant_outcome_ids: Mapped[list] = mapped_column(JSON, default=list)
     evaluator_membership_id: Mapped[str] = mapped_column(String(36), index=True)
-    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
     current_effectiveness_snapshot: Mapped[str] = mapped_column(String(30))
     outcome_relevance_details: Mapped[dict] = mapped_column(JSON, default=dict)
-    superseded_by_evaluation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    superseded_by_membership_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
-    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_by_evaluation_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    superseded_by_membership_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )
+    superseded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     supersession_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         UniqueConstraint("tenant_id", "id"),
-        ForeignKeyConstraint(["tenant_id", "decision_case_id"], ["decision_cases.tenant_id", "decision_cases.id"], ondelete="CASCADE", name="fk_lesson_eval_tenant_decision"),
-        ForeignKeyConstraint(["tenant_id", "lesson_adoption_id"], ["decision_lesson_adoptions.tenant_id", "decision_lesson_adoptions.id"], name="fk_lesson_eval_tenant_adoption"),
-        ForeignKeyConstraint(["tenant_id", "historical_decision_id"], ["decision_cases.tenant_id", "decision_cases.id"], name="fk_lesson_eval_tenant_historical"),
-        ForeignKeyConstraint(["tenant_id", "effectiveness_assessment_id"], ["decision_effectiveness_assessments.tenant_id", "decision_effectiveness_assessments.id"], name="fk_lesson_eval_tenant_assessment"),
-        ForeignKeyConstraint(["tenant_id", "evaluator_membership_id"], ["memberships.tenant_id", "memberships.id"], name="fk_lesson_eval_tenant_evaluator"),
-        ForeignKeyConstraint(["tenant_id", "superseded_by_evaluation_id"], ["decision_lesson_evaluations.tenant_id", "decision_lesson_evaluations.id"], name="fk_lesson_eval_tenant_supersession"),
-        ForeignKeyConstraint(["tenant_id", "superseded_by_membership_id"], ["memberships.tenant_id", "memberships.id"], name="fk_lesson_eval_tenant_superseder"),
-        CheckConstraint("classification IN ('beneficial','neutral','ineffective','harmful','not_applied','inconclusive','appropriate_rejection','potentially_costly_rejection')", name="ck_lesson_eval_classification"),
+        ForeignKeyConstraint(
+            ["tenant_id", "decision_case_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            ondelete="CASCADE",
+            name="fk_lesson_eval_tenant_decision",
+        ),
+        ForeignKeyConstraint(
+            [
+                "tenant_id",
+                "lesson_adoption_id",
+                "decision_case_id",
+                "historical_decision_id",
+            ],
+            [
+                "decision_lesson_adoptions.tenant_id",
+                "decision_lesson_adoptions.id",
+                "decision_lesson_adoptions.decision_case_id",
+                "decision_lesson_adoptions.historical_decision_id",
+            ],
+            name="fk_lesson_eval_tenant_adoption",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "historical_decision_id"],
+            ["decision_cases.tenant_id", "decision_cases.id"],
+            name="fk_lesson_eval_tenant_historical",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "effectiveness_assessment_id", "decision_case_id"],
+            [
+                "decision_effectiveness_assessments.tenant_id",
+                "decision_effectiveness_assessments.id",
+                "decision_effectiveness_assessments.decision_case_id",
+            ],
+            name="fk_lesson_eval_tenant_assessment",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "evaluator_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_lesson_eval_tenant_evaluator",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_evaluation_id"],
+            ["decision_lesson_evaluations.tenant_id", "decision_lesson_evaluations.id"],
+            name="fk_lesson_eval_tenant_supersession",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "superseded_by_membership_id"],
+            ["memberships.tenant_id", "memberships.id"],
+            name="fk_lesson_eval_tenant_superseder",
+        ),
+        CheckConstraint(
+            "classification IN ('beneficial','neutral','ineffective','harmful','not_applied','inconclusive','appropriate_rejection','potentially_costly_rejection')",
+            name="ck_lesson_eval_classification",
+        ),
         CheckConstraint("length(trim(rationale)) > 0", name="ck_lesson_eval_rationale"),
-        CheckConstraint("(superseded_at IS NULL AND superseded_by_evaluation_id IS NULL AND superseded_by_membership_id IS NULL AND supersession_rationale IS NULL) OR (superseded_at IS NOT NULL AND superseded_by_evaluation_id IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)", name="ck_lesson_eval_supersession"),
-        Index("uq_active_lesson_evaluation", "tenant_id", "lesson_adoption_id", unique=True, postgresql_where=text("superseded_at IS NULL"), sqlite_where=text("superseded_at IS NULL")),
+        CheckConstraint(
+            "(superseded_at IS NULL AND superseded_by_evaluation_id IS NULL AND superseded_by_membership_id IS NULL AND supersession_rationale IS NULL) OR (superseded_at IS NOT NULL AND superseded_by_evaluation_id IS NOT NULL AND superseded_by_membership_id IS NOT NULL AND length(trim(supersession_rationale)) > 0)",
+            name="ck_lesson_eval_supersession",
+        ),
+        Index(
+            "uq_active_lesson_evaluation",
+            "tenant_id",
+            "lesson_adoption_id",
+            unique=True,
+            postgresql_where=text("superseded_at IS NULL"),
+            sqlite_where=text("superseded_at IS NULL"),
+        ),
     )
 
 
