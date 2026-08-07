@@ -5,6 +5,7 @@ import {useParams} from "next/navigation";
 import {useEffect, useState} from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   ArrowLeft,
   BookOpen,
   Building2,
@@ -12,13 +13,19 @@ import {
   CheckCircle2,
   Clock3,
   Download,
+  DollarSign,
   FileCheck2,
   FileText,
+  GitBranch,
+  LockKeyhole,
   MapPin,
+  Presentation,
   RefreshCw,
   Scale,
   ShieldCheck,
   UserRound,
+  X,
+  Zap,
 } from "lucide-react";
 import Shell from "@/components/Shell";
 import DashboardWidget from "@/components/dashboard/DashboardWidget";
@@ -245,6 +252,39 @@ const tabs = [
   "Reports",
 ] as const;
 
+const presenterSteps: {tab: (typeof tabs)[number]; label: string; narration: string}[] = [
+  {tab: "Overview", label: "Frame the decision", narration: "Show the critical merchant, business impact, and accountable question."},
+  {tab: "Evidence", label: "Trace the critical signal", narration: "Open the finding-to-source chain and prove where the alert came from."},
+  {tab: "AI Analysis", label: "Explain the recommendation", narration: "Compare current exposure with the deterministic controlled scenario."},
+  {tab: "Decision Memory", label: "Learn from history", narration: "Compare successful, failed, rejected, and misleading historical Decisions."},
+  {tab: "Approvals", label: "Keep humans accountable", narration: "Show that an authorized reviewer must record rationale and take the action."},
+  {tab: "Reports", label: "Leave a governed artifact", narration: "Generate the confidential internal Decision Brief PDF."},
+];
+
+const criticalTraceability = [
+  {
+    signal: "$186,000 attempted exposure in 24 hours",
+    source: "Critical fraud-network escalation — 24-hour alert",
+    fact: "Active coordinated card testing reached 11.6× authorization baseline.",
+    policy: "Active fraud escalation requires containment before processing activation.",
+    control: "Block activation until independent containment verification.",
+  },
+  {
+    signal: "Chargebacks reached 1.48%",
+    source: "Chargeback monitoring report",
+    fact: "Chargebacks rose above the governed 1.0% enhanced-review threshold.",
+    policy: "Merchant acquiring risk policy requires enhanced review above 1.0%.",
+    control: "10% rolling reserve, enhanced monitoring, and a $5M processing cap.",
+  },
+  {
+    signal: "25% beneficial owner remains unresolved",
+    source: "KYB and beneficial-owner verification",
+    fact: "Identity and address evidence remain incomplete for one 25% owner.",
+    policy: "An unresolved 25% beneficial owner blocks unconditional approval.",
+    control: "Complete UBO remediation and screening before activation.",
+  },
+];
+
 export default function DecisionWorkspace() {
   const params = useParams<{id: string}>();
   const [data, setData] = useState<WorkspaceResponse>();
@@ -292,6 +332,9 @@ export default function DecisionWorkspace() {
   const [evidenceBusy, setEvidenceBusy] = useState(false);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [presenterMode, setPresenterMode] = useState(false);
+  const [presenterStep, setPresenterStep] = useState(0);
+  const [expandedTrace, setExpandedTrace] = useState<number | null>(0);
   const [removingEvidence, setRemovingEvidence] = useState<string>();
   const [removalRationale, setRemovalRationale] = useState("");
   const [drafts, setDrafts] = useState<
@@ -673,6 +716,14 @@ export default function DecisionWorkspace() {
 
         <div className={styles.heroActions}>
           <button
+            className={styles.presenterButton}
+            onClick={() => setPresenterMode((current) => !current)}
+            aria-pressed={presenterMode}
+          >
+            <Presentation size={16} />
+            {presenterMode ? "Exit presenter mode" : "Presenter mode"}
+          </button>
+          <button
             className={styles.refreshButton}
             onClick={() => void load()}
             disabled={refreshing}
@@ -789,6 +840,50 @@ export default function DecisionWorkspace() {
         ))}
       </nav>
 
+      {presenterMode ? (
+        <section className={styles.presenterPanel} aria-label="Guided presentation journey">
+          <div className={styles.presenterHeading}>
+            <div>
+              <span>Guided demo · Step {presenterStep + 1} of {presenterSteps.length}</span>
+              <strong>{presenterSteps[presenterStep].label}</strong>
+              <p>{presenterSteps[presenterStep].narration}</p>
+            </div>
+            <button onClick={() => setPresenterMode(false)} aria-label="Close presenter mode">
+              <X size={17} />
+            </button>
+          </div>
+          <div className={styles.presenterProgress}>
+            {presenterSteps.map((step, index) => (
+              <button
+                key={step.label}
+                className={index === presenterStep ? styles.presenterActive : ""}
+                onClick={() => {
+                  setPresenterStep(index);
+                  setActiveTab(step.tab);
+                }}
+                aria-label={`Go to ${step.label}`}
+              >
+                <span>{index + 1}</span>
+                {step.label}
+              </button>
+            ))}
+          </div>
+          <div className={styles.presenterActions}>
+            <Link href="/knowledge">Start with Knowledge Cards</Link>
+            <button
+              onClick={() => {
+                const next = Math.min(presenterSteps.length - 1, presenterStep + 1);
+                setPresenterStep(next);
+                setActiveTab(presenterSteps[next].tab);
+              }}
+              disabled={presenterStep === presenterSteps.length - 1}
+            >
+              Next demo moment <ArrowRight size={15} />
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {activeTab === "Overview" ? (
         <section className={styles.workspaceGrid}>
           <div className={styles.mainColumn}>
@@ -808,6 +903,33 @@ export default function DecisionWorkspace() {
                 <p>{decision.recommendation}</p>
               </div>
             </DashboardWidget>
+
+            {demoAnalysis ? (
+              <DashboardWidget
+                eyebrow="Executive interpretation"
+                title="Why this matters to the business"
+              >
+                <div className={styles.businessImpactGrid}>
+                  <article className={styles.businessImpactCritical}>
+                    <DollarSign size={20} />
+                    <div><strong>$186,000</strong><span>Attempted exposure detected in the latest 24-hour window</span></div>
+                  </article>
+                  <article>
+                    <AlertTriangle size={20} />
+                    <div><strong>Network exposure</strong><span>Active fraud and chargeback escalation could trigger monitoring consequences</span></div>
+                  </article>
+                  <article>
+                    <LockKeyhole size={20} />
+                    <div><strong>Activation blocked</strong><span>Containment must be independently verified before processing begins</span></div>
+                  </article>
+                  <article>
+                    <UserRound size={20} />
+                    <div><strong>Human owner</strong><span>Merchant Risk Committee remains accountable for the final action</span></div>
+                  </article>
+                </div>
+                <p className={styles.helperText}>Deterministic business interpretation of governed synthetic evidence; not a predicted loss estimate.</p>
+              </DashboardWidget>
+            ) : null}
 
             <DashboardWidget
               eyebrow="Evidence baseline"
@@ -903,6 +1025,40 @@ export default function DecisionWorkspace() {
                   </div>
                 </div>
               ) : null}
+              <div className={styles.traceabilityPanel}>
+                <div className={styles.traceabilityHeading}>
+                  <GitBranch size={20} />
+                  <div>
+                    <strong>Finding-to-source traceability</strong>
+                    <span>Click a signal to follow the governed reasoning chain.</span>
+                  </div>
+                </div>
+                <div className={styles.traceabilityList}>
+                  {criticalTraceability.map((trace, index) => (
+                    <article key={trace.signal}>
+                      <button
+                        onClick={() => setExpandedTrace(expandedTrace === index ? null : index)}
+                        aria-expanded={expandedTrace === index}
+                      >
+                        <AlertTriangle size={16} />
+                        <strong>{trace.signal}</strong>
+                        <span>{expandedTrace === index ? "Hide chain" : "Trace evidence"}</span>
+                      </button>
+                      {expandedTrace === index ? (
+                        <div className={styles.traceChain}>
+                          <div><b>1 · Source</b><span>{trace.source}</span></div>
+                          <ArrowRight size={16} />
+                          <div><b>2 · Extracted fact</b><span>{trace.fact}</span></div>
+                          <ArrowRight size={16} />
+                          <div><b>3 · Policy requirement</b><span>{trace.policy}</span></div>
+                          <ArrowRight size={16} />
+                          <div><b>4 · Recommended control</b><span>{trace.control}</span></div>
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </div>
               <div className={styles.reviewList}>
                 {([
                   ["Important facts", demoAnalysis.facts],
@@ -1603,6 +1759,36 @@ export default function DecisionWorkspace() {
                 <strong>{demoAnalysis.recommendation}</strong>
                 <p>{demoAnalysis.accountability}</p>
               </div>
+            </div>
+            <div className={styles.scenarioPanel}>
+              <div className={styles.scenarioHeading}>
+                <Zap size={20} />
+                <div>
+                  <strong>Deterministic control scenario</strong>
+                  <span>Illustrative policy-state comparison, not predictive scoring.</span>
+                </div>
+              </div>
+              <div className={styles.scenarioComparison}>
+                <article className={styles.scenarioCurrent}>
+                  <span>Current governed state</span>
+                  <strong>CRITICAL · ACTIVATION BLOCKED</strong>
+                  <p>Active card testing, $186,000 attempted exposure, elevated chargebacks, and unresolved ownership evidence.</p>
+                </article>
+                <ArrowRight size={24} />
+                <article className={styles.scenarioControlled}>
+                  <span>If all proposed controls are verified</span>
+                  <strong>REVIEW REQUIRED · RESTRICTED PATH</strong>
+                  <p>Containment verified, reserve and cap applied, corridors restricted, enhanced monitoring active, and UBO remediation complete.</p>
+                </article>
+              </div>
+            </div>
+            <div className={styles.humanActionPanel}>
+              <LockKeyhole size={21} />
+              <div>
+                <strong>AI stops at the recommendation</strong>
+                <p>An authorized human must review the evidence, enter a rationale, and approve, return, condition, or reject.</p>
+              </div>
+              <button onClick={() => setActiveTab("Approvals")}>Open accountable action <ArrowRight size={15} /></button>
             </div>
             <div className={styles.reviewList}>
               {([

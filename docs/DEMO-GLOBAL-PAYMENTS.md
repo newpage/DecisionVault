@@ -21,6 +21,18 @@ payment transaction is represented.
 
 ## 7–8 minute presentation script
 
+### Presenter mode
+
+Open **Northstar Digital Commerce** and select **Presenter mode** in the decision
+header. The guided strip keeps the presentation on a six-step path: Overview,
+Evidence, AI Analysis, Decision Memory, Approvals, and Reports. Use **Next demo
+moment** to advance, while retaining normal tab navigation if the audience asks
+to explore.
+
+The Overview now begins with **Why this matters to the business**, summarizing
+the synthetic exposure, the activation control, and the accountable human
+owner. Treat the figures as deterministic demo data, not predictive estimates.
+
 ### 0:00–0:45 — Frame the decision
 
 1. Sign in as the presenter.
@@ -60,7 +72,9 @@ Transition: use the browser Back action, then click **Evidence**.
 1. Click **Evidence**.
 2. Pause on **Critical signal detected**, then point to **Important facts**,
    **Conflicting evidence**, **Material risks**, and **Missing information**.
-3. Scroll into **Active decision evidence** and point to relationship, trust,
+3. Expand **Trace finding to source** to show the signal → source → extracted
+   fact → governing policy → proposed control chain.
+4. Scroll into **Active decision evidence** and point to relationship, trust,
    immutable snapshot, and selection rationale.
 
 Expected highlights:
@@ -88,6 +102,10 @@ Transition: click **AI Analysis**.
    containment verification and required controls.**
 3. Point to Facts, Assumptions, Risks, Missing information, Proposed controls,
    and numbered Citations.
+4. Compare **Current evidence** with **If the critical controls are verified**.
+   Explain that this is a deterministic scenario, not a forecast or approval.
+5. Use **Continue to governed approval** to demonstrate where AI stops and
+   accountable human action begins.
 
 Expected controls: 10% reserve, $5M cap, corridor restrictions, enhanced
 monitoring, 30-day UBO/expected-activity remediation, and human committee
@@ -98,9 +116,11 @@ explanation. It cannot silently approve Northstar. Notice that merchant-supplied
 volume remains an assumption, incomplete AML evidence is not called suspicious
 activity, and every proposed control traces to governed evidence.”
 
-Optional live enhancement: open **Ask DecisionVault**, retain the prepared
-Northstar question, and click **Analyze governed evidence**. Identify the output
-using its on-screen mode label. Skip this click if timing or Ollama availability
+Optional live enhancement: open **Ask DecisionVault** and choose one of the
+preset executive questions—for example, “Why should Northstar not be activated
+today?” or “What would change the recommendation?” Presets run immediately and
+reduce typing during the presentation. Identify the output using its on-screen
+mode label. Skip this click if timing or Ollama availability
 is uncertain; the core recommendation does not depend on it.
 
 Transition: return to Northstar and click **Decision Memory**.
