@@ -1,10 +1,10 @@
 :root{
-  --dv-midnight:#07111f;
-  --dv-deep:#0a1525;
-  --dv-panel:#0d1a2c;
-  --dv-panel-soft:#101e31;
-  --dv-border:#1c2c43;
-  --dv-border-strong:#29425f;
+  --dv-midnight:#132238;
+  --dv-deep:#172940;
+  --dv-panel:#192b42;
+  --dv-panel-soft:#1d3049;
+  --dv-border:#2b405a;
+  --dv-border-strong:#3a5875;
   --dv-text:#edf3fa;
   --dv-muted:#8fa1b8;
   --dv-subtle:#63758d;
@@ -20,7 +20,7 @@ body{
   grid-template-columns:268px minmax(0,1fr);
 }
 .dv-sidebar{
-  background:linear-gradient(180deg,#091525 0%,#07111f 100%);
+  background:linear-gradient(180deg,#102139 0%,#0d1b2f 100%);
   border-right:1px solid var(--dv-border);
   padding:24px 18px 18px;
   display:flex;
@@ -177,6 +177,9 @@ body{
   min-height:100vh;
   display:flex;
   flex-direction:column;
+  background:
+    radial-gradient(circle at 82% 8%,rgba(62,103,143,.16),transparent 32%),
+    linear-gradient(145deg,#15263d 0%,#122238 52%,#101e32 100%);
 }
 .dv-main{
   flex:1;
@@ -192,7 +195,7 @@ body{
   gap:24px;
   padding:17px 42px;
   border-top:1px solid var(--dv-border);
-  background:#06101d;
+  background:#0e1d31;
   color:var(--dv-subtle);
   font-size:10px;
   line-height:1.5;
@@ -214,8 +217,8 @@ body{
   grid-template-columns:minmax(390px,.95fr) minmax(470px,1.05fr);
   grid-template-rows:1fr auto;
   background:
-    radial-gradient(circle at 14% 18%,rgba(38,91,120,.35),transparent 34%),
-    linear-gradient(135deg,#07111f 0%,#091626 55%,#06101c 100%);
+    radial-gradient(circle at 14% 18%,rgba(69,122,157,.38),transparent 34%),
+    linear-gradient(135deg,#162a43 0%,#13243b 55%,#102036 100%);
 }
 .dv-login-story{
   padding:56px clamp(36px,6vw,92px);
