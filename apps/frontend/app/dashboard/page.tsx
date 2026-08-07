@@ -85,6 +85,7 @@ function greeting() {
 }
 
 export default function Dashboard() {
+  const [greetingText, setGreetingText] = useState("Welcome");
   const [data, setData] = useState<DashboardResponse>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -115,6 +116,7 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
+    setGreetingText(greeting());
     void load();
 
     const interval = window.setInterval(() => {
@@ -140,7 +142,7 @@ export default function Dashboard() {
           <div className={styles.eyebrow}>Executive command center</div>
           <h1>Decision Intelligence</h1>
           <p>
-            {greeting()}. Monitor decision readiness, enterprise risk,
+            {greetingText}. Monitor decision readiness, enterprise risk,
             governed evidence, and operational attention from one view.
           </p>
         </div>

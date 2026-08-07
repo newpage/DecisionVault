@@ -43,8 +43,22 @@ type Decision = {
   business_unit: string;
   readiness_score: number;
   readiness_status: string;
+  evidence_summary: {demo_analysis?: DemoAnalysis};
   created_at: string;
   updated_at: string;
+};
+
+type DemoAnalysis = {
+  mode: string;
+  facts: string[];
+  conflicts: string[];
+  risks: string[];
+  missing_information: string[];
+  assumptions: string[];
+  recommendation: string;
+  controls: string[];
+  citations: string[];
+  accountability: string;
 };
 
 type KnowledgeCard = {
@@ -592,6 +606,7 @@ export default function DecisionWorkspace() {
     : decision.risk_level === "medium"
     ? "warning"
     : "positive";
+  const demoAnalysis = decision.evidence_summary?.demo_analysis;
 
   return (
     <Shell>
@@ -822,6 +837,30 @@ export default function DecisionWorkspace() {
 
       {activeTab === "Evidence" ? (
         <section className={styles.evidenceWorkspace}>
+          {demoAnalysis ? (
+            <DashboardWidget
+              eyebrow="AI moment 2 · Deterministic governed analysis"
+              title="Merchant evidence picture"
+            >
+              <div className={styles.reviewList}>
+                {([
+                  ["Important facts", demoAnalysis.facts],
+                  ["Conflicting evidence", demoAnalysis.conflicts],
+                  ["Material risks", demoAnalysis.risks],
+                  ["Missing information", demoAnalysis.missing_information],
+                ] as [string, string[]][]).map(([title, items]) => (
+                  <article className={styles.reviewCard} key={title}>
+                    <strong>{title}</strong>
+                    {items.map((item) => <p key={item}>• {item}</p>)}
+                  </article>
+                ))}
+              </div>
+              <p className={styles.helperText}>
+                {demoAnalysis.mode}. Categories are derived from governed synthetic evidence;
+                no approval action is taken.
+              </p>
+            </DashboardWidget>
+          ) : null}
           <DashboardWidget
             eyebrow="Immutable snapshots"
             title={`Active decision evidence (${data.evidence.length})`}
@@ -1491,19 +1530,65 @@ export default function DecisionWorkspace() {
         </section>
       ) : null}
 
-      {["AI Analysis", "Reports"].includes(activeTab) ? (
+      {activeTab === "AI Analysis" && demoAnalysis ? (
+        <section className={styles.approvalWorkspace} aria-label="Grounded AI recommendation explanation">
+          <DashboardWidget
+            eyebrow="AI moment 3 · Grounded recommendation"
+            title="Conditional approval explanation"
+          >
+            <div className={styles.recommendation}>
+              <ShieldCheck size={20} />
+              <div>
+                <strong>{demoAnalysis.recommendation}</strong>
+                <p>{demoAnalysis.accountability}</p>
+              </div>
+            </div>
+            <div className={styles.reviewList}>
+              {([
+                ["Facts", demoAnalysis.facts],
+                ["Assumptions", demoAnalysis.assumptions],
+                ["Risks", demoAnalysis.risks],
+                ["Missing information", demoAnalysis.missing_information],
+                ["Proposed controls", demoAnalysis.controls],
+              ] as [string, string[]][]).map(([title, items]) => (
+                <article className={styles.reviewCard} key={title}>
+                  <strong>{title}</strong>
+                  {items.map((item) => <p key={item}>• {item}</p>)}
+                </article>
+              ))}
+            </div>
+            <div className={styles.finding}>
+              <strong>Citations</strong>
+              {demoAnalysis.citations.map((citation, index) => (
+                <p key={citation}>[{index + 1}] {citation}</p>
+              ))}
+            </div>
+            <p className={styles.helperText}>
+              Deterministic presentation output from pre-seeded governed records. Live local AI
+              may enhance wording in Ask DecisionVault, but the recommendation and controls do not depend on it.
+            </p>
+          </DashboardWidget>
+        </section>
+      ) : null}
+
+      {activeTab === "AI Analysis" && !demoAnalysis ? (
         <DashboardWidget
-          eyebrow="Release 0.5 roadmap"
-          title={`${activeTab} workspace`}
+          eyebrow="Governed analysis"
+          title="AI Analysis workspace"
         >
           <div className={styles.futurePanel}>
             <ShieldCheck size={24} />
             <strong>{activeTab} foundation is ready</strong>
             <p>
-              This section is reserved in the unified workspace and will be
-              activated in the next Release 0.5 increments.
+              No governed analysis snapshot is available for this Decision.
             </p>
           </div>
+        </DashboardWidget>
+      ) : null}
+
+      {activeTab === "Reports" ? (
+        <DashboardWidget eyebrow="Presentation scope" title="Reports workspace">
+          <div className={styles.futurePanel}><strong>Reports are outside this demonstration path.</strong></div>
         </DashboardWidget>
       ) : null}
     </Shell>

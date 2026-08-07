@@ -32,11 +32,31 @@ class DecisionRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def list_decisions(self, *, tenant_id: str) -> list[DecisionCase]:
+    def list_decisions(
+        self,
+        *,
+        tenant_id: str,
+        clearance_rank: int,
+        role_ids: set[str],
+    ) -> list[DecisionCase]:
+        policy_allowed = (
+            exists(
+                select(AccessPolicyRole.policy_id).where(
+                    AccessPolicyRole.policy_id == DecisionCase.access_policy_id,
+                    AccessPolicyRole.role_id.in_(role_ids),
+                )
+            )
+            if role_ids
+            else False
+        )
         return list(
             self._db.scalars(
                 select(DecisionCase)
-                .where(DecisionCase.tenant_id == tenant_id)
+                .where(
+                    DecisionCase.tenant_id == tenant_id,
+                    DecisionCase.classification_rank <= clearance_rank,
+                    DecisionCase.access_policy_id.is_(None) | policy_allowed,
+                )
                 .order_by(DecisionCase.created_at.desc())
             ).all()
         )

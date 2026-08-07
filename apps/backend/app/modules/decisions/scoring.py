@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Protocol
+from app.core.config import settings
 
 
 class EvidenceCard(Protocol):
@@ -21,13 +22,25 @@ class ReadinessResult:
     summary: dict
 
 
-CONTROL_AREAS = [
+GENERIC_CONTROL_AREAS = [
     "Policy and governance requirements",
     "Operational capability and controls",
     "Risk, compliance, and assurance",
     "Continuity, security, and accountability",
 ]
 
+PAYMENTS_CONTROL_AREAS = [
+    "Merchant profile and processing model",
+    "Fraud, transaction behavior, and chargebacks",
+    "KYC/KYB, beneficial ownership, AML, and sanctions",
+    "Approval controls, monitoring, and operational risk",
+]
+
+CONTROL_AREAS = (
+    PAYMENTS_CONTROL_AREAS
+    if settings.demo_profile == "payments"
+    else GENERIC_CONTROL_AREAS
+)
 
 def calculate_readiness(cards: list[EvidenceCard]) -> ReadinessResult:
     total = len(cards)

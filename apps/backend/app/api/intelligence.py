@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.deps import Principal, get_db, get_principal
 from app.models import AuditEvent
 from app.schemas import QuestionRequest
@@ -36,6 +37,11 @@ async def ask(
     db.commit()
     return {
         "answer": response,
+        "mode": (
+            "Local AI enabled · deterministic fallback available"
+            if settings.ollama_enabled
+            else "Deterministic grounded fallback"
+        ),
         "confidence": round(
             sum(item[2] for item in evidence)
             / max(1, len(evidence))

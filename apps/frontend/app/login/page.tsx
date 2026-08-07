@@ -7,8 +7,12 @@ import ProductBrand from "@/components/ProductBrand";
 import {API} from "@/lib/api";
 
 export default function Login() {
-  const [tenant, setTenant] = useState("acme");
-  const [email, setEmail] = useState("demo@decisionvault.ai");
+  const [tenant, setTenant] = useState(
+    process.env.NEXT_PUBLIC_DEMO_TENANT || "acme"
+  );
+  const [email, setEmail] = useState(
+    process.env.NEXT_PUBLIC_DEMO_EMAIL || "demo@decisionvault.ai"
+  );
   const [password, setPassword] = useState("DecisionVault!");
   const [error, setError] = useState("");
 

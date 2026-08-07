@@ -959,6 +959,8 @@ def list_decisions(
     try:
         return service.list_decisions(
             tenant_id=principal.tenant_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
             permissions=principal.permissions,
         )
     except (DecisionPermissionError,) as exc:

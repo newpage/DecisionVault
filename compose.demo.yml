@@ -1,0 +1,19 @@
+services:
+  backend:
+    environment:
+      DATABASE_URL: postgresql+psycopg://decisionvault:decisionvault@db:5432/decisionvault
+      DEMO_PROFILE: payments
+      DEMO_TENANT_SLUG: global-payments
+      DEMO_EMAIL: presenter@globalpayments.demo
+      DEMO_PASSWORD: DecisionVault!
+      OLLAMA_ENABLED: ${OLLAMA_ENABLED:-false}
+      CORS_ORIGINS: http://127.0.0.1:3400
+
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:8400/api/v1
+        NEXT_PUBLIC_DEMO_TENANT: global-payments
+        NEXT_PUBLIC_DEMO_EMAIL: presenter@globalpayments.demo
+    environment:
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8400/api/v1

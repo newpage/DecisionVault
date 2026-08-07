@@ -36,18 +36,23 @@ type Decision = {
   evidence_summary: {missing_information?: string[]};
 };
 
+const paymentsDemo =
+  process.env.NEXT_PUBLIC_DEMO_TENANT === "global-payments";
+
 const defaults = {
-  title: "",
-  question: "",
-  supplier_name: "",
-  supplier_category: "",
-  supplier_location: "",
-  owner_name: "",
+title: paymentsDemo ? "Review merchant acquiring application" : "",
+  question: paymentsDemo
+    ? "Should this merchant be approved, conditionally approved, restricted, or rejected for merchant acquiring?"
+    : "",
+  supplier_name: paymentsDemo ? "Northstar Digital Commerce LLC" : "",
+  supplier_category: paymentsDemo ? "Card-not-present merchant" : "",
+  supplier_location: paymentsDemo ? "Austin, Texas" : "",
+  owner_name: paymentsDemo ? "Merchant Risk Committee" : "",
   due_date: "",
   priority: "high",
   risk_level: "high",
   decision_type: "initial_qualification",
-  business_unit: "",
+  business_unit: paymentsDemo ? "Merchant Acquiring Risk" : "",
 };
 
 export default function Decisions() {
@@ -117,16 +122,22 @@ export default function Decisions() {
   return (
     <Shell>
       <PageHeader
-        eyebrow="Decision Intelligence"
-        title="Decisions"
-        description="Make governed decisions using transparent evidence, risk, ownership, and accountable review."
+	eyebrow={
+		paymentsDemo ? "Merchant Decision Intelligence" : "Decision Intelligence"
+	}
+	title={paymentsDemo ? "Merchant Acquiring Decisions" : "Decisions"}
+	description={
+		paymentsDemo
+			? "Underwrite merchants using governed fraud, chargeback, KYC/KYB, AML, sanctions, and operational-risk evidence."
+			: "Make governed decisions using transparent evidence, risk, ownership, and accountable review."
+	}
         action={
           <button
             className="btn primary row"
             onClick={() => setShow((current) => !current)}
           >
             <Plus size={16} />
-            New decision
+		{paymentsDemo ? "New merchant decision" : "New decision"}
           </button>
         }
       />
@@ -138,7 +149,7 @@ export default function Decisions() {
             {
               items.filter(
                 (item) =>
-                  !["approved", "closed"].includes(item.status),
+                  !["approved", "rejected", "closed"].includes(item.status),
               ).length
             }
           </strong>
@@ -147,8 +158,10 @@ export default function Decisions() {
           <span className="muted">High-risk reviews</span>
           <strong>
             {
-              items.filter((item) =>
-                ["high", "critical"].includes(item.risk_level),
+              items.filter(
+                (item) =>
+                  ["high", "critical"].includes(item.risk_level) &&
+                  !["approved", "rejected", "closed"].includes(item.status),
               ).length
             }
           </strong>
@@ -168,14 +181,14 @@ export default function Decisions() {
         <Card className="decision-form">
           <div className="section-title">
             <Cpu size={19} />
-            <h2>New Decision</h2>
+		<h2> {paymentsDemo ? "New Merchant Acquiring Review" : "New Decision"} </h2>
           </div>
 
           <div className="decision-form-grid">
             {(
               [
-                ["supplier_name", "Supplier name"],
-                ["supplier_location", "Supplier location"],
+                ["supplier_name", "Merchant legal name"],
+                ["supplier_location", "Merchant location and market"],
                 ["owner_name", "Decision owner"],
                 ["due_date", "Due date"],
               ] as const

@@ -9,6 +9,7 @@ from app.modules.members.router import router as members_router
 from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
 from app.seed import seed
+from app.demo_seed import seed_payments_demo
 from app.version import get_version
 
 VERSION = get_version()
@@ -20,7 +21,10 @@ async def lifespan(app: FastAPI):
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)
     with SessionLocal() as db:
-        seed(db)
+        if settings.demo_profile == "payments":
+            seed_payments_demo(db)
+        else:
+            seed(db)
     yield
 
 

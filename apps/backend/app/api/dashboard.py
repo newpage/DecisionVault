@@ -17,13 +17,22 @@ def dashboard(
     p: Principal = Depends(get_principal),
     db: Session = Depends(get_db),
 ):
+    cache_key = (
+        f"{p.tenant_id}:{p.membership.clearance_rank}:"
+        + ",".join(sorted(p.role_ids))
+    )
     if not refresh:
-        cached = dashboard_cache.get(p.tenant_id)
+        cached = dashboard_cache.get(cache_key)
         if cached is not None:
             return cached
 
-    response = build_dashboard(db, p.tenant_id)
-    dashboard_cache.set(p.tenant_id, response)
+    response = build_dashboard(
+        db,
+        p.tenant_id,
+        clearance_rank=p.membership.clearance_rank,
+        role_ids=p.role_ids,
+    )
+    dashboard_cache.set(cache_key, response)
     return response
 
 

@@ -50,12 +50,21 @@ class DecisionService:
         self._repository = repository
 
     def list_decisions(
-        self, *, tenant_id: str, permissions: set[str]
+        self,
+        *,
+        tenant_id: str,
+        clearance_rank: int,
+        role_ids: set[str],
+        permissions: set[str],
     ) -> list[DecisionResponse]:
         authorize_view(permissions)
         return [
             DecisionResponse.model_validate(item)
-            for item in self._repository.list_decisions(tenant_id=tenant_id)
+            for item in self._repository.list_decisions(
+                tenant_id=tenant_id,
+                clearance_rank=clearance_rank,
+                role_ids=role_ids,
+            )
         ]
 
     def get_workspace(
@@ -194,7 +203,7 @@ class DecisionService:
             event_type="DecisionCreated",
             entity_type="decision_case",
             description=(
-                f"Supplier qualification decision created for {command.supplier_name}."
+                f"Governed decision created for {command.supplier_name}."
             ),
             details={
                 "supplier_category": command.supplier_category,

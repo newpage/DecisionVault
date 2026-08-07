@@ -4,17 +4,19 @@ from collections import Counter
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
     AuditEvent,
+    AccessPolicyRole,
     BusinessConcept,
     DecisionCase,
     KnowledgeCard,
     SourceDocument,
     Workspace,
 )
+from app.modules.knowledge.policies import authorized_knowledge_filters
 
 
 OPEN_STATUSES = {
@@ -276,18 +278,44 @@ def _build_insights(
     return insights[:4]
 
 
-def build_dashboard(db: Session, tenant_id: str) -> dict[str, Any]:
+def build_dashboard(
+    db: Session,
+    tenant_id: str,
+    *,
+    clearance_rank: int = 10_000,
+    role_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    roles = role_ids or set()
+    policy_allowed = (
+        exists(
+            select(AccessPolicyRole.policy_id).where(
+                AccessPolicyRole.policy_id == DecisionCase.access_policy_id,
+                AccessPolicyRole.role_id.in_(roles),
+            )
+        )
+        if roles
+        else False
+    )
     decisions = list(
         db.scalars(
             select(DecisionCase)
-            .where(DecisionCase.tenant_id == tenant_id)
+            .where(
+                DecisionCase.tenant_id == tenant_id,
+                DecisionCase.classification_rank <= clearance_rank,
+                DecisionCase.access_policy_id.is_(None) | policy_allowed,
+            )
             .order_by(DecisionCase.created_at.desc())
         ).all()
     )
 
     knowledge_cards = list(
         db.scalars(
-            select(KnowledgeCard).where(KnowledgeCard.tenant_id == tenant_id)
+            select(KnowledgeCard).where(
+                KnowledgeCard.tenant_id == tenant_id,
+                *authorized_knowledge_filters(
+                    clearance_rank=clearance_rank, role_ids=roles
+                ),
+            )
         ).all()
     )
 
