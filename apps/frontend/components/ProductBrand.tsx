@@ -3,11 +3,13 @@ import DecisionVaultMark from "@/components/DecisionVaultMark";
 type ProductBrandProps = {
   large?: boolean;
   trademark?: boolean;
+  tagline?: string;
 };
 
 export default function ProductBrand({
   large = false,
   trademark = false,
+  tagline = "Enterprise Decision Intelligence",
 }: ProductBrandProps) {
   return (
     <div className={`dv-product-brand${large ? " large" : ""}`}>
@@ -17,7 +19,7 @@ export default function ProductBrand({
           Decision<span>Vault</span>{trademark ? <sup>™</sup> : null}
         </div>
         <div className="dv-product-tagline">
-          Enterprise Decision Intelligence
+          {tagline}
         </div>
       </div>
     </div>

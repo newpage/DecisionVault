@@ -41,7 +41,11 @@ export default function Login() {
       <section className="dv-login-story">
         <DiscoverABrand />
         <div className="dv-login-message">
-          <ProductBrand large />
+          <ProductBrand
+            large
+            trademark
+            tagline="A DiscoverA.ai Technology"
+          />
           <h1>Govern knowledge. Build trust. Make better decisions.</h1>
           <p>
             Turn enterprise evidence into transparent, accountable, and
