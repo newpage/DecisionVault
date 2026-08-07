@@ -657,6 +657,8 @@ export default function DecisionWorkspace() {
           detail={decision.readiness_status.replaceAll("_", " ")}
           icon={FileCheck2}
           tone={readinessTone}
+          onClick={() => setActiveTab("Overview")}
+          actionLabel="View readiness"
         />
         <DecisionScoreCard
           label="Risk level"
@@ -664,6 +666,8 @@ export default function DecisionWorkspace() {
           detail={`${decision.priority} priority`}
           icon={AlertTriangle}
           tone={riskTone}
+          onClick={() => setActiveTab("Evidence")}
+          actionLabel="View critical evidence"
         />
         <DecisionScoreCard
           label="Confidence"
@@ -673,6 +677,8 @@ export default function DecisionWorkspace() {
           tone={
             summary.confidence_percent >= 80 ? "positive" : "neutral"
           }
+          onClick={() => setActiveTab("AI Analysis")}
+          actionLabel="View AI analysis"
         />
         <DecisionScoreCard
           label="Evidence"
@@ -680,6 +686,8 @@ export default function DecisionWorkspace() {
           detail={`${summary.approved_count} approved`}
           icon={BookOpen}
           tone={summary.evidence_count >= 4 ? "positive" : "warning"}
+          onClick={() => setActiveTab("Evidence")}
+          actionLabel="View evidence"
         />
       </section>
 

@@ -1,8 +1,11 @@
-.card{padding:17px;border:1px solid var(--dv-border);border-top:2px solid #5f86b5;border-radius:15px;background:linear-gradient(145deg,#0f1e31,#0a1626)}
+.card{width:100%;padding:17px;border:1px solid var(--dv-border);border-top:2px solid #5f86b5;border-radius:15px;background:linear-gradient(145deg,#0f1e31,#0a1626);color:inherit;text-align:left;cursor:pointer;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.card:hover{transform:translateY(-2px);border-color:#42617f;box-shadow:0 12px 30px rgba(0,0,0,.22)}
+.card:focus-visible{outline:3px solid rgba(83,214,199,.45);outline-offset:3px}
 .top{display:flex;justify-content:space-between;gap:12px;color:var(--dv-muted);font-size:12px}
 .top svg{color:#aebed1}
 .card strong{display:block;margin:14px 0 7px;font-size:28px;line-height:1;letter-spacing:-.035em}
 .card small{color:var(--dv-subtle);font-size:11px}
+.action{display:block;margin-top:12px;color:var(--dv-cyan);font-size:12px;font-weight:700}
 .positive{border-top-color:#55cbaa}
 .warning{border-top-color:#d8aa58}
 .critical{border-top-color:#df7474}
