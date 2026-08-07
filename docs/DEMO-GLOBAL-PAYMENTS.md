@@ -28,7 +28,7 @@ payment transaction is represented.
 3. Click **Northstar Digital Commerce LLC**.
 
 Expected: a critical-risk merchant-acquiring Decision with 89% recorded
-confidence, seven approved evidence records, and a human-owned question:
+confidence, eight approved evidence records, and a human-owned question:
 approve, conditionally approve, restrict, or reject.
 
 Narration: “Northstar is growing quickly, but chargebacks, transaction behavior,
@@ -41,9 +41,10 @@ reviewable knowledge.”
 ### 0:45–1:50 — AI moment 1: document intelligence
 
 1. Click **Knowledge Cards** in the primary navigation.
-2. Point to the seven cards and the banner **Deterministic synthetic extraction**.
+2. Point to the eight cards and the banner **Deterministic synthetic extraction**.
 3. Expand the story verbally while scrolling through merchant profile, KYB,
-   fraud, chargeback, AML, sanctions, and policy cards.
+   fraud, the critical 24-hour network alert, chargeback, AML, sanctions, and
+   policy cards.
 
 Expected: each card shows structured facts, synthetic-file provenance,
 authority, published state, trust, and AI retrieval eligibility.
@@ -57,30 +58,34 @@ Transition: use the browser Back action, then click **Evidence**.
 ### 1:50–3:00 — AI moment 2: governed evidence picture
 
 1. Click **Evidence**.
-2. Point to **Important facts**, **Conflicting evidence**, **Material risks**, and
-   **Missing information**.
+2. Pause on **Critical signal detected**, then point to **Important facts**,
+   **Conflicting evidence**, **Material risks**, and **Missing information**.
 3. Scroll into **Active decision evidence** and point to relationship, trust,
    immutable snapshot, and selection rationale.
 
 Expected highlights:
 
 - Chargebacks rose 0.62% → 1.48%; 58% are fraud-coded.
+- A 24-hour network alert detected an active coordinated card-testing attack,
+  11.6× baseline attempts, and $186,000 in attempted exposure.
 - Card testing is 3.9× baseline and device sharing is 14.7%.
 - The merchant says there is no material anomaly.
 - A 25% owner is unresolved.
 - Verified parties screen clear, but final sanctions disposition is incomplete.
 
-Narration: “This is deterministic governed analysis—not a black-box risk score.
-It distinguishes facts from contradictions and missing evidence while preserving
-the authority and trust of every source.”
+Narration: “The system has isolated a critical signal rather than burying it in
+the file set. This is deterministic governed analysis—not a black-box risk
+score. The alert remains tied to its source, and an accountable human still
+decides what happens next.”
 
 Transition: click **AI Analysis**.
 
 ### 3:00–4:15 — AI moment 3: grounded recommendation
 
 1. Click **AI Analysis**.
-2. Read the recommendation: **Conditionally approve with restrictions; do not
-   grant unconditional approval.**
+2. Read the recommendation: **Do not activate processing while the critical
+   fraud alert remains open. Consider conditional approval only after independent
+   containment verification and required controls.**
 3. Point to Facts, Assumptions, Risks, Missing information, Proposed controls,
    and numbered Citations.
 
@@ -162,7 +167,7 @@ giving up provenance, access control, or human responsibility.”
 ## Presentation truth labels
 
 - **Deterministic synthetic extraction:** pre-seeded structured cards for the
-  seven synthetic source documents.
+  eight synthetic source documents.
 - **Deterministic governed analysis:** pre-seeded evidence categories,
   recommendation, controls, and citations.
 - **Pre-seeded historical record:** historical Decisions, outcomes, precedent

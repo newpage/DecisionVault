@@ -43,6 +43,10 @@
 .profile dd{margin:0;color:#d7e2ee;font-size:10px;text-align:right;text-transform:capitalize}
 .evidenceList{display:grid;gap:11px}
 .evidenceWorkspace{display:grid;gap:16px}
+.criticalAlert{display:grid;grid-template-columns:auto 1fr;gap:14px;margin-bottom:16px;padding:18px;border:2px solid #d85b65;border-radius:14px;background:linear-gradient(135deg,#421f28,#271822);color:#ffd9dc;box-shadow:0 14px 36px rgba(125,31,43,.22)}
+.criticalAlert svg{color:#ff8d96;margin-top:2px}
+.criticalAlert strong{display:block;margin-bottom:8px;color:#fff;font-size:20px}
+.criticalAlert p{margin:5px 0;font-size:16px;line-height:1.65}
 .evidenceCard{padding:15px;border:1px solid #263a53;border-radius:13px;background:#091625}
 .evidenceHeader{display:flex;justify-content:space-between;gap:18px}
 .evidenceHeader>div:first-child{display:grid;gap:4px}
@@ -98,7 +102,7 @@
 .hero p{font-size:14px}
 .metaBar span{font-size:12px}
 .metaBar b{font-size:10px}
-.tabs button{font-size:12px}
+.tabs button{padding:11px 15px;font-size:16px}
 .finding,.controlList>div{font-size:12px}
 .clearState,.emptyPanel,.futurePanel{font-size:12px}
 .profile dt{font-size:11px}

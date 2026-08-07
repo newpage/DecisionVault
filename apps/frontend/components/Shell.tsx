@@ -102,7 +102,7 @@ export default function Shell({
         </div>
 
         <div className={`dv-sidebar-product ${styles.productBrand}`}>
-          <ProductBrand />
+          <ProductBrand trademark />
         </div>
 
         <nav

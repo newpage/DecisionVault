@@ -53,6 +53,7 @@ type DemoAnalysis = {
   facts: string[];
   conflicts: string[];
   risks: string[];
+  critical_findings: string[];
   missing_information: string[];
   assumptions: string[];
   recommendation: string;
@@ -842,6 +843,17 @@ export default function DecisionWorkspace() {
               eyebrow="AI moment 2 · Deterministic governed analysis"
               title="Merchant evidence picture"
             >
+              {demoAnalysis.critical_findings?.length ? (
+                <div className={styles.criticalAlert} role="alert">
+                  <AlertTriangle size={28} />
+                  <div>
+                    <strong>Critical signal detected</strong>
+                    {demoAnalysis.critical_findings.map((item) => (
+                      <p key={item}>• {item}</p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className={styles.reviewList}>
                 {([
                   ["Important facts", demoAnalysis.facts],

@@ -111,6 +111,14 @@ CARD_DATA = [
         ["3.9x card-testing attempts", "14.7% device-sharing cluster", "overnight velocity spikes"],
     ),
     (
+        "Critical fraud-network escalation — 24-hour alert",
+        "payments_critical_fraud_alert",
+        "network_risk_alert",
+        0.99,
+        "Network telemetry confirmed an active coordinated card-testing attack: authorization attempts reached 11.6x baseline, 38% of flagged accounts reused shared device fingerprints, and attempted exposure reached $186,000 in 24 hours. Immediate containment is required before processing activation.",
+        ["11.6x authorization-attempt baseline", "38% shared device-fingerprint reuse", "$186,000 attempted exposure in 24 hours", "Active attack requires immediate containment"],
+    ),
+    (
         "Chargeback monitoring report",
         "payments_chargebacks",
         "network_monitoring",
@@ -314,6 +322,7 @@ def seed_payments_demo(db: Session) -> None:
     analysis = {
         "mode": "Deterministic analysis from governed synthetic evidence",
         "facts": [
+            "A 24-hour network alert detected an active coordinated card-testing attack with $186,000 in attempted exposure.",
             "Chargebacks rose from 0.62% to 1.48% in 90 days.",
             "Fraud-coded disputes are 58% of chargebacks.",
             "Card-testing attempts are 3.9x baseline.",
@@ -325,6 +334,7 @@ def seed_payments_demo(db: Session) -> None:
             "Sanctions screening is clear for verified parties, but final disposition is incomplete for the unresolved owner.",
         ],
         "risks": [
+            "CRITICAL: Active card testing reached 11.6x baseline with 38% shared device-fingerprint reuse.",
             "Chargeback exposure exceeds the 1.0% enhanced-review threshold.",
             "Rapid volume growth may amplify fraud and operational losses.",
             "Cross-border digital-goods concentration increases dispute and monitoring complexity.",
@@ -338,7 +348,12 @@ def seed_payments_demo(db: Session) -> None:
             "Projected volume and transaction mix remain merchant-supplied until reconciled to processor history.",
             "No confirmed suspicious activity or sanctions match is inferred from incomplete evidence.",
         ],
-        "recommendation": "Conditionally approve with restrictions; do not grant unconditional approval.",
+        "critical_findings": [
+            "Active coordinated card-testing attack detected",
+            "$186,000 attempted exposure in the latest 24-hour window",
+            "Processing activation must remain blocked until containment is independently verified",
+        ],
+        "recommendation": "Do not activate processing while the critical fraud alert remains open. Consider conditional approval only after independent containment verification and required controls; do not grant unconditional approval.",
         "controls": [
             "10% rolling reserve",
             "$5M monthly processing cap",
@@ -350,6 +365,7 @@ def seed_payments_demo(db: Session) -> None:
         "citations": [
             "Chargeback monitoring report",
             "Fraud telemetry — 90-day review",
+            "Critical fraud-network escalation — 24-hour alert",
             "KYB and beneficial-owner verification",
             "AML transaction-monitoring review",
             "Sanctions and watchlist screening",
@@ -390,10 +406,10 @@ def seed_payments_demo(db: Session) -> None:
                 "Approval controls and accountability",
             ],
             "calculation": {
-                "governed_evidence": {"points": 40, "possible": 40, "count": 7},
-                "source_trust": {"points": 27, "possible": 30, "count": 7},
-                "risk_coverage": {"points": 16, "possible": 20, "count": 6},
-                "citation_readiness": {"points": 6, "possible": 10, "count": 6},
+                "governed_evidence": {"points": 40, "possible": 40, "count": 8},
+                "source_trust": {"points": 27, "possible": 30, "count": 8},
+                "risk_coverage": {"points": 16, "possible": 20, "count": 7},
+                "citation_readiness": {"points": 6, "possible": 10, "count": 7},
             },
             "demo_analysis": analysis,
         },
@@ -401,7 +417,7 @@ def seed_payments_demo(db: Session) -> None:
     )
     db.add(current)
     db.flush()
-    relationships = ["contextual", "constraint", "risk", "risk", "risk", "supporting", "constraint"]
+    relationships = ["contextual", "constraint", "risk", "risk", "risk", "risk", "supporting", "constraint"]
     for (card, chunk, source), relationship in zip(cards, relationships, strict=True):
         db.add(
             DecisionEvidence(

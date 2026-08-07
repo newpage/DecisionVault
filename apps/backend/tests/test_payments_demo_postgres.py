@@ -66,12 +66,17 @@ def test_payments_portfolio_is_complete_and_truthfully_labeled(seeded_engine):
                 )
             ).all()
         )
-        assert len(cards) == 7
+        assert len(cards) == 8
         assert all(card.approval_status == "approved" for card in cards)
         assert all("deterministic synthetic" in card.body for card in cards)
         analysis = current.evidence_summary["demo_analysis"]
-        assert analysis["recommendation"].startswith("Conditionally approve")
-        assert len(analysis["citations"]) == 6
+        assert analysis["recommendation"].startswith("Do not activate processing")
+        assert len(analysis["citations"]) == 7
+        assert analysis["critical_findings"] == [
+            "Active coordinated card-testing attack detected",
+            "$186,000 attempted exposure in the latest 24-hour window",
+            "Processing activation must remain blocked until containment is independently verified",
+        ]
         assert "accountable human" in analysis["accountability"]
         assert {
             item.classification

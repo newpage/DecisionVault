@@ -73,6 +73,13 @@ body{
 .dv-product-name span{
   color:var(--dv-cyan);
 }
+.dv-product-name sup{
+  margin-left:2px;
+  color:var(--dv-muted);
+  font-size:.48em;
+  line-height:0;
+  vertical-align:super;
+}
 .dv-product-tagline{
   margin-top:3px;
   color:var(--dv-muted);
