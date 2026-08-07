@@ -1,7 +1,7 @@
 # Global Payments demo through Apache HTTPS
 
 This runbook exposes the isolated `decisionvault-payments-demo` Compose project
-through `https://decisionvault.discover.ai`. It does not deploy the code or
+through `https://decisionvault.discovera.ai`. It does not deploy the code or
 modify Apache by itself. The normal `decisionvault` Compose project and its
 volumes are separate and must not be stopped or reset during this procedure.
 
@@ -14,7 +14,7 @@ The server command merges, in order:
 3. `compose.demo.server.yml`
 
 The final override changes the browser API base to `/api/v1` and backend CORS to
-`https://decisionvault.discover.ai`. The frontend and backend remain published
+`https://decisionvault.discovera.ai`. The frontend and backend remain published
 only on Linux loopback ports `3400` and `8400`. PostgreSQL and the worker have no
 published ports. The Compose project remains `decisionvault-payments-demo`, so
 its named database and storage volumes remain isolated from normal DecisionVault.
@@ -47,7 +47,7 @@ sudo cp -a /etc/apache2/sites-enabled/decisionvault.conf \
   /etc/apache2/sites-enabled/decisionvault.conf.before-payments-demo
 ```
 
-Inside the existing `*:443` vhost for `decisionvault.discover.ai`, replace only
+Inside the existing `*:443` vhost for `decisionvault.discovera.ai`, replace only
 the current DecisionVault proxy upstream block with the following rules. Order
 is mandatory: `/api/` and `/health` precede the frontend catch-all.
 
@@ -80,7 +80,7 @@ Local upstream checks:
 curl --fail http://127.0.0.1:8400/health
 curl --fail http://127.0.0.1:3400/
 curl --fail \
-  -H 'Origin: https://decisionvault.discover.ai' \
+  -H 'Origin: https://decisionvault.discovera.ai' \
   -H 'Access-Control-Request-Method: POST' \
   -X OPTIONS \
   -D - \
@@ -90,12 +90,12 @@ curl --fail \
 Public routing and login checks:
 
 ```bash
-curl --fail https://decisionvault.discover.ai/health
-curl --fail https://decisionvault.discover.ai/
+curl --fail https://decisionvault.discovera.ai/health
+curl --fail https://decisionvault.discovera.ai/
 curl --fail \
   -H 'Content-Type: application/json' \
   --data '{"tenant":"global-payments","email":"presenter@globalpayments.demo","password":"DecisionVault!"}' \
-  https://decisionvault.discover.ai/api/v1/auth/login
+  https://decisionvault.discovera.ai/api/v1/auth/login
 ```
 
 In a private browser window at presentation resolution, run the complete script
@@ -134,7 +134,7 @@ sudo apachectl configtest
 sudo systemctl reload apache2
 curl --fail http://127.0.0.1:8200/health
 curl --fail http://127.0.0.1:3200/
-curl --fail https://decisionvault.discover.ai/health
+curl --fail https://decisionvault.discovera.ai/health
 ```
 
 After public traffic is confirmed on normal DecisionVault, the isolated demo

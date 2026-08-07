@@ -1,7 +1,7 @@
 services:
   backend:
     environment:
-      CORS_ORIGINS: https://decisionvault.discover.ai
+      CORS_ORIGINS: https://decisionvault.discovera.ai
 
   frontend:
     build:

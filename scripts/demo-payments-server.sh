@@ -51,4 +51,4 @@ wait_for_http "Backend" "http://127.0.0.1:8400/health"
 wait_for_http "Frontend" "http://127.0.0.1:3400/"
 
 printf '\nPayments demo services are healthy on Linux loopback.\n'
-printf 'Public URL after the authorized Apache change: https://decisionvault.discover.ai\n'
+printf 'Public URL after the authorized Apache change: https://decisionvault.discovera.ai\n'
