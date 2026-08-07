@@ -12,7 +12,7 @@ class DecisionCreate(BaseModel):
     title: str = Field(min_length=3, max_length=240)
     question: str = Field(min_length=10)
     supplier_name: str = Field(min_length=2, max_length=180)
-    supplier_category: str = Field(default="Electronic Manufacturer", max_length=120)
+    supplier_category: str = Field(default="", max_length=120)
     supplier_location: str = Field(default="", max_length=180)
     owner_name: str = Field(min_length=2, max_length=180)
     due_date: date | None = None
@@ -24,7 +24,7 @@ class DecisionCreate(BaseModel):
         "renewal",
         "disqualification",
     ] = "initial_qualification"
-    business_unit: str = Field(default="Electronics Supply Chain", max_length=180)
+    business_unit: str = Field(default="", max_length=180)
     classification_rank: int = Field(default=20, ge=0)
     access_policy_id: str | None = None
 

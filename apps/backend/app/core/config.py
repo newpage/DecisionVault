@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     demo_tenant_slug: str = "acme"
     demo_email: str = "demo@decisionvault.ai"
     demo_password: str = "DecisionVault!"
+    dv_seed_demo_data: bool = False
 
     @field_validator("jwt_secret")
     @classmethod

@@ -38,6 +38,13 @@ Open `http://localhost:3200`.
 For the local demo login, use the `DEMO_TENANT_SLUG`, `DEMO_EMAIL`, and
 `DEMO_PASSWORD` values configured in your uncommitted `.env` file.
 
+Startup always creates the bootstrap tenant, administrator, permissions, and
+core business concepts required for a usable installation. Synthetic supplier
+and electronics-manufacturer Knowledge Cards are disabled by default. Set
+`DV_SEED_DEMO_DATA=true` only when that optional demonstration content is
+wanted. Changing the setting does not remove records from an existing database;
+pre-release environments must use an approved clean reset or manual cleanup.
+
 Required Ollama models:
 
 ```bash

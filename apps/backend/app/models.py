@@ -340,9 +340,7 @@ class DecisionCase(Base):
     recommendation: Mapped[str] = mapped_column(Text, default="")
     confidence: Mapped[float] = mapped_column(Float, default=0)
     supplier_name: Mapped[str] = mapped_column(String(180), default="")
-    supplier_category: Mapped[str] = mapped_column(
-        String(120), default="Electronic Manufacturer"
-    )
+    supplier_category: Mapped[str] = mapped_column(String(120), default="")
     supplier_location: Mapped[str] = mapped_column(String(180), default="")
     owner_name: Mapped[str] = mapped_column(String(180), default="")
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -351,9 +349,7 @@ class DecisionCase(Base):
     decision_type: Mapped[str] = mapped_column(
         String(60), default="initial_qualification"
     )
-    business_unit: Mapped[str] = mapped_column(
-        String(180), default="Electronics Supply Chain"
-    )
+    business_unit: Mapped[str] = mapped_column(String(180), default="")
     readiness_score: Mapped[int] = mapped_column(Integer, default=0)
     readiness_status: Mapped[str] = mapped_column(
         String(60), default="insufficient_evidence"

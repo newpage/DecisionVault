@@ -22,18 +22,24 @@ from app.models import (
 DEMO_TEXT = """Vendor onboarding requires Quality approval, a current supplier assessment, executed quality agreement, and verification that required testing capabilities are qualified. Conditional approval may be considered only when documented controls and an accountable owner are assigned."""
 
 
-def seed(db: Session):
+def seed(db: Session) -> None:
+    seed_core(db)
+    if settings.dv_seed_demo_data:
+        seed_demo(db)
+
+
+def seed_core(db: Session) -> None:
     if db.scalar(select(Tenant.id).limit(1)):
         return
-    tenant = Tenant(slug=settings.demo_tenant_slug, name="Acme Life Sciences")
+    tenant = Tenant(slug=settings.demo_tenant_slug, name="DecisionVault")
     user = User(
         email=settings.demo_email,
-        full_name="DecisionVault Demo Administrator",
+        full_name="DecisionVault Administrator",
         password_hash=hash_password(settings.demo_password),
     )
     db.add_all([tenant, user])
     db.flush()
-    org = Organization(tenant_id=tenant.id, name="Acme Life Sciences", code="ACME")
+    org = Organization(tenant_id=tenant.id, name="DecisionVault", code="DV")
     db.add(org)
     db.flush()
     membership = Membership(
@@ -91,8 +97,8 @@ def seed(db: Session):
     ws = Workspace(
         tenant_id=tenant.id,
         organization_id=org.id,
-        name="Supplier Governance",
-        description="Trusted knowledge and decisions for supplier qualification.",
+        name="Decision Governance",
+        description="Trusted knowledge and evidence for governed decisions.",
     )
     db.add(ws)
     db.flush()
@@ -154,8 +160,36 @@ def seed(db: Session):
         ),
     ]
     db.add_all(concepts)
-    db.flush()
-    supplier_concept = next(c for c in concepts if c.slug == "supplier-qualification")
+    db.commit()
+
+
+def seed_demo(db: Session) -> None:
+    tenant = db.scalar(select(Tenant).where(Tenant.slug == settings.demo_tenant_slug))
+    if tenant is None:
+        return
+    user = db.scalar(select(User).where(User.email == settings.demo_email))
+    ws = db.scalar(
+        select(Workspace).where(
+            Workspace.tenant_id == tenant.id,
+            Workspace.name == "Decision Governance",
+        )
+    )
+    supplier_concept = db.scalar(
+        select(BusinessConcept).where(
+            BusinessConcept.tenant_id == tenant.id,
+            BusinessConcept.slug == "supplier-qualification",
+        )
+    )
+    if user is None or ws is None or supplier_concept is None:
+        return
+    if db.scalar(
+        select(KnowledgeCard.id).where(
+            KnowledgeCard.tenant_id == tenant.id,
+            KnowledgeCard.title == "Supplier Qualification Requirements",
+        )
+    ):
+        return
+
     card = KnowledgeCard(
         tenant_id=tenant.id,
         workspace_id=ws.id,

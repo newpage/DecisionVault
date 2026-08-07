@@ -37,18 +37,17 @@ type Decision = {
 };
 
 const defaults = {
-  title: "Qualify electronic manufacturing supplier",
-  question:
-    "Should this electronic manufacturer be approved to supply production components?",
-  supplier_name: "Apex Circuit Manufacturing",
-  supplier_category: "Electronic Manufacturer",
-  supplier_location: "San Jose, California",
-  owner_name: "Supplier Quality Manager",
+  title: "",
+  question: "",
+  supplier_name: "",
+  supplier_category: "",
+  supplier_location: "",
+  owner_name: "",
   due_date: "",
   priority: "high",
   risk_level: "high",
   decision_type: "initial_qualification",
-  business_unit: "Electronics Supply Chain",
+  business_unit: "",
 };
 
 export default function Decisions() {
@@ -75,10 +74,7 @@ export default function Decisions() {
       setWorkspaceId(workspaceRows[0].id);
     }
     if (!conceptId) {
-      const supplier = conceptRows.find(
-        (item) => item.slug === "supplier-qualification",
-      );
-      if (supplier) setConceptId(supplier.id);
+      if (conceptRows[0]) setConceptId(conceptRows[0].id);
     }
   }
 
@@ -121,16 +117,16 @@ export default function Decisions() {
   return (
     <Shell>
       <PageHeader
-        eyebrow="Supplier Decision Intelligence"
-        title="Electronic Manufacturer Decisions"
-        description="Qualify electronics suppliers using transparent evidence, risk, ownership, and accountable review."
+        eyebrow="Decision Intelligence"
+        title="Decisions"
+        description="Make governed decisions using transparent evidence, risk, ownership, and accountable review."
         action={
           <button
             className="btn primary row"
             onClick={() => setShow((current) => !current)}
           >
             <Plus size={16} />
-            New supplier decision
+            New decision
           </button>
         }
       />
@@ -172,7 +168,7 @@ export default function Decisions() {
         <Card className="decision-form">
           <div className="section-title">
             <Cpu size={19} />
-            <h2>New Electronic Manufacturer Qualification</h2>
+            <h2>New Decision</h2>
           </div>
 
           <div className="decision-form-grid">
@@ -288,16 +284,15 @@ export default function Decisions() {
 
           <div className="decision-control-note">
             <ShieldCheck size={18} />
-            Evidence is assessed across quality certification,
-            manufacturing controls, traceability, counterfeit
-            prevention, supply continuity, and cybersecurity.
+            Evidence is assessed across governance, operational
+            controls, risk, continuity, security, and accountability.
           </div>
 
           <button
             className="btn primary"
             onClick={() => void create()}
           >
-            Create qualification decision
+            Create decision
           </button>
         </Card>
       ) : null}

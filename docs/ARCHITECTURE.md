@@ -138,9 +138,21 @@ Source changes are built, tested, reviewed, and committed on the Mac workstation
 
 Executable defaults are backend `127.0.0.1:8200` and frontend `127.0.0.1:3200`, overridable with `DV_BACKEND_PORT` and `DV_FRONTEND_PORT`. Container ports remain 8000 and 3000. The `/api/` Apache rule must precede the catch-all frontend rule.
 
+## Startup initialization
+
+Backend startup creates tables and runs idempotent initialization. The core
+seed creates the bootstrap tenant, organization, administrator membership,
+roles, permissions, workspace, and controlled Business Concepts. It does not
+create synthetic Knowledge Cards or Decisions. Optional supplier and
+electronics-manufacturer Knowledge Cards are isolated behind
+`DV_SEED_DEMO_DATA`, which defaults to `false`.
+
+Demo seeding is additive and idempotent for the configured bootstrap tenant.
+Disabling it later does not delete existing demo rows.
+
 ## Current lifecycle constraints
 
-The accepted pre-release policy permits breaking schema and API changes and assumes fresh databases between breaking releases. Startup currently creates the vector extension and tables directly with SQLAlchemy and seeds demo data; no migration framework was found. See [ADR-0001](adr/ADR-0001-pre-release-breaking-changes.md).
+The accepted pre-release policy permits breaking schema and API changes and assumes fresh databases between breaking releases. Startup currently creates the vector extension and tables directly with SQLAlchemy and seeds required core data, plus explicitly enabled demo data; no migration framework was found. See [ADR-0001](adr/ADR-0001-pre-release-breaking-changes.md).
 
 ## Precedent effectiveness and Decision learning
 

@@ -22,10 +22,10 @@ class ReadinessResult:
 
 
 CONTROL_AREAS = [
-    "Quality management and certifications",
-    "Manufacturing capability and process controls",
-    "Component traceability and counterfeit prevention",
-    "Supply continuity and cybersecurity",
+    "Policy and governance requirements",
+    "Operational capability and controls",
+    "Risk, compliance, and assurance",
+    "Continuity, security, and accountability",
 ]
 
 
@@ -47,7 +47,7 @@ def calculate_readiness(cards: list[EvidenceCard]) -> ReadinessResult:
     score = approval + trust + coverage + governance
     missing = []
     if total == 0:
-        missing.append("No supplier qualification evidence is connected.")
+        missing.append("No decision evidence is connected.")
     if approved < total:
         missing.append("One or more evidence items are not approved.")
     if trusted < total:
