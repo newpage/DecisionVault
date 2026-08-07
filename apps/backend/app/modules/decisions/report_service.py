@@ -44,6 +44,14 @@ def _safe(value: object) -> str:
 def _page(canvas, doc) -> None:
     canvas.saveState()
     width, height = letter
+    canvas.saveState()
+    canvas.setFillColor(colors.HexColor("#9B3D47"))
+    canvas.setFillAlpha(0.075)
+    canvas.setFont("Helvetica-Bold", 62)
+    canvas.translate(width / 2, height / 2)
+    canvas.rotate(38)
+    canvas.drawCentredString(0, 0, "CONFIDENTIAL")
+    canvas.restoreState()
     canvas.setFillColor(NAVY)
     canvas.rect(0, height - 0.5 * inch, width, 0.5 * inch, fill=1, stroke=0)
     canvas.setFillColor(colors.white)
