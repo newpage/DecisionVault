@@ -11,7 +11,9 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Download,
   FileCheck2,
+  FileText,
   MapPin,
   RefreshCw,
   Scale,
@@ -22,7 +24,7 @@ import Shell from "@/components/Shell";
 import DashboardWidget from "@/components/dashboard/DashboardWidget";
 import DecisionScoreCard from "@/components/decision/DecisionScoreCard";
 import ReadinessBreakdown from "@/components/decision/ReadinessBreakdown";
-import {api} from "@/lib/api";
+import {API, api, token} from "@/lib/api";
 import styles from "./DecisionWorkspace.module.css";
 
 type Decision = {
@@ -288,6 +290,8 @@ export default function DecisionWorkspace() {
   const [available, setAvailable] = useState<AvailableEvidence[]>([]);
   const [history, setHistory] = useState<KnowledgeCard[]>([]);
   const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [removingEvidence, setRemovingEvidence] = useState<string>();
   const [removalRationale, setRemovalRationale] = useState("");
   const [drafts, setDrafts] = useState<
@@ -351,6 +355,43 @@ export default function DecisionWorkspace() {
       );
     } finally {
       setRefreshing(false);
+    }
+  }
+
+  async function downloadDecisionBrief() {
+    setReportBusy(true);
+    setReportError("");
+    try {
+      const response = await fetch(
+        `${API}/decisions/${params.id}/reports/decision-brief.pdf`,
+        {
+          headers: token() ? {Authorization: `Bearer ${token()}`} : {},
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({detail: response.statusText}));
+        throw new Error(failure.detail || "Unable to generate Decision brief.");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const filename = (data?.decision.supplier_name || "decision")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      link.href = url;
+      link.download = `${filename || "decision"}-confidential-brief.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (caught) {
+      setReportError(
+        caught instanceof Error ? caught.message : "Unable to generate Decision brief.",
+      );
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -1607,8 +1648,31 @@ export default function DecisionWorkspace() {
       ) : null}
 
       {activeTab === "Reports" ? (
-        <DashboardWidget eyebrow="Presentation scope" title="Reports workspace">
-          <div className={styles.futurePanel}><strong>Reports are outside this demonstration path.</strong></div>
+        <DashboardWidget eyebrow="Governed internal sharing" title="Decision Brief PDF">
+          <div className={styles.reportPanel}>
+            <div className={styles.reportIcon}><FileText size={30} /></div>
+            <div>
+              <strong>Confidential internal Decision brief</strong>
+              <p>
+                Generate a presentation-ready PDF containing the current Decision profile,
+                critical signals, grounded recommendation, risks, gaps, controls, evidence
+                snapshots, provenance, citations, and human-accountability disclosures.
+              </p>
+              <span>
+                Access controls are revalidated at generation time. The report is marked
+                CONFIDENTIAL and identifies the current Decision revision.
+              </span>
+            </div>
+            <button
+              className={styles.primaryAction}
+              onClick={() => void downloadDecisionBrief()}
+              disabled={reportBusy}
+            >
+              <Download size={17} />
+              {reportBusy ? "Generating PDF…" : "Generate Decision Brief PDF"}
+            </button>
+          </div>
+          {reportError ? <div className={styles.error}>{reportError}</div> : null}
         </DashboardWidget>
       ) : null}
     </Shell>

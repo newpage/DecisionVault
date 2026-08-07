@@ -84,6 +84,12 @@
 .reviewCard span{color:var(--dv-subtle);font-size:9px;text-transform:capitalize}
 .reviewCard p{color:var(--dv-muted);font-size:10px;line-height:1.5}
 .helperText{color:var(--dv-subtle);font-size:9px;line-height:1.45}
+.reportPanel{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;padding:20px;border:1px solid #29435e;border-radius:15px;background:linear-gradient(135deg,#0e2136,#0a1728)}
+.reportIcon{width:58px;height:58px;display:grid;place-items:center;border-radius:15px;background:#16394a;color:var(--dv-cyan)}
+.reportPanel strong{display:block;color:#eef6ff;font-size:18px}
+.reportPanel p{margin:8px 0;color:var(--dv-muted);font-size:15px;line-height:1.65}
+.reportPanel span{color:var(--dv-subtle);font-size:13px;line-height:1.55}
+.reportPanel button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:230px;font-size:14px}
 .candidateSearch{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .candidateList{display:grid;gap:7px;max-height:230px;overflow:auto;padding-right:3px}
 .candidateList button{display:grid;gap:3px;text-align:left;background:#0d1c2e;border-color:#263f58}
@@ -95,6 +101,7 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:1150px){.scoreGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.workspaceGrid{grid-template-columns:1fr}}
 @media(max-width:760px){.hero{align-items:flex-start;flex-direction:column}.heroActions{width:100%}.statusBadge{flex:1}.scoreGrid{grid-template-columns:1fr}.evidenceHeader,.evidenceMeta,.reviewHeader{flex-direction:column}.evidenceBadges{flex-wrap:wrap}.selectionControls,.removalControls,.approvalControls{grid-template-columns:1fr}}
+@media(max-width:900px){.reportPanel{grid-template-columns:1fr}.reportPanel button{width:100%}}
 
 /* Presentation readability: increase dense labels and supporting copy. */
 .backLink{font-size:12px}

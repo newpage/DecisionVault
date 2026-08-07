@@ -1,4 +1,5 @@
 import {LucideIcon} from "lucide-react";
+import Link from "next/link";
 import styles from "./ExecutiveMetric.module.css";
 
 type ExecutiveMetricProps = {
@@ -7,6 +8,8 @@ type ExecutiveMetricProps = {
   detail: string;
   icon: LucideIcon;
   tone?: "neutral" | "positive" | "warning" | "critical";
+  href: string;
+  actionLabel: string;
 };
 
 export default function ExecutiveMetric({
@@ -15,9 +18,15 @@ export default function ExecutiveMetric({
   detail,
   icon: Icon,
   tone = "neutral",
+  href,
+  actionLabel,
 }: ExecutiveMetricProps) {
   return (
-    <article className={`${styles.metric} ${styles[tone]}`}>
+    <Link
+      className={`${styles.metric} ${styles[tone]}`}
+      href={href}
+      aria-label={`${label}: ${actionLabel}`}
+    >
       <div className={styles.top}>
         <span>{label}</span>
         <span className={styles.icon}>
@@ -26,6 +35,7 @@ export default function ExecutiveMetric({
       </div>
       <strong>{value}</strong>
       <small>{detail}</small>
-    </article>
+      <span className={styles.action}>{actionLabel} →</span>
+    </Link>
   );
 }

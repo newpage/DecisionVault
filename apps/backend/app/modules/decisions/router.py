@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.deps import Principal, get_db, get_principal
@@ -104,6 +104,7 @@ from app.modules.decisions.service import (
     DecisionService,
 )
 from app.modules.decisions.review_service import DecisionReviewService
+from app.modules.decisions.report_service import build_decision_brief
 from app.modules.members.repository import MemberDirectoryRepository
 from app.modules.members.service import (
     CandidateEligibilityError,
@@ -980,6 +981,39 @@ def get_decision_workspace(
             clearance_rank=principal.membership.clearance_rank,
             role_ids=principal.role_ids,
             permissions=principal.permissions,
+        )
+    except (DecisionNotFoundError, DecisionPermissionError) as exc:
+        raise map_failure(exc) from exc
+
+
+@router.get("/decisions/{decision_id}/reports/decision-brief.pdf")
+def download_decision_brief(
+    decision_id: str,
+    principal: Principal = Depends(get_principal),
+    service: DecisionService = Depends(get_service),
+):
+    try:
+        workspace = service.get_workspace(
+            tenant_id=principal.tenant_id,
+            decision_id=decision_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            permissions=principal.permissions,
+        )
+        report = build_decision_brief(
+            workspace,
+            generated_by=principal.user.full_name or principal.user.email,
+        )
+        return Response(
+            content=report,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="decision-brief-{decision_id}.pdf"'
+                ),
+                "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
         )
     except (DecisionNotFoundError, DecisionPermissionError) as exc:
         raise map_failure(exc) from exc

@@ -205,6 +205,8 @@ export default function Dashboard() {
               detail={`${summary.pending_approval} awaiting approval`}
               icon={Scale}
               tone={summary.open_decisions ? "warning" : "neutral"}
+              href="/decisions"
+              actionLabel="Open Decision Center"
             />
             <ExecutiveMetric
               label="High risk"
@@ -212,6 +214,8 @@ export default function Dashboard() {
               detail={`${summary.overdue} overdue review${summary.overdue === 1 ? "" : "s"}`}
               icon={AlertTriangle}
               tone={summary.high_risk ? "critical" : "positive"}
+              href="/decisions"
+              actionLabel="Review high-risk decisions"
             />
             <ExecutiveMetric
               label="Average readiness"
@@ -219,6 +223,8 @@ export default function Dashboard() {
               detail="Across open decisions"
               icon={FileCheck2}
               tone={summary.average_readiness >= 80 ? "positive" : "warning"}
+              href="/decisions"
+              actionLabel="Review decision readiness"
             />
             <ExecutiveMetric
               label="Governance score"
@@ -226,6 +232,8 @@ export default function Dashboard() {
               detail="Approved, trusted, AI-eligible"
               icon={ShieldCheck}
               tone={summary.governance_score >= 80 ? "positive" : "warning"}
+              href="/governance"
+              actionLabel="Open governance"
             />
             <ExecutiveMetric
               label="Knowledge cards"
@@ -233,6 +241,8 @@ export default function Dashboard() {
               detail={`${summary.published_knowledge} approved`}
               icon={BookOpen}
               tone="positive"
+              href="/knowledge"
+              actionLabel="View Knowledge Cards"
             />
             <ExecutiveMetric
               label="AI confidence"
@@ -240,6 +250,8 @@ export default function Dashboard() {
               detail="Recorded decision confidence"
               icon={BrainCircuit}
               tone={summary.ai_confidence >= 80 ? "positive" : "neutral"}
+              href="/ask"
+              actionLabel="Ask DecisionVault"
             />
             <ExecutiveMetric
               label="Business concepts"
@@ -247,6 +259,8 @@ export default function Dashboard() {
               detail="Active governed concepts"
               icon={Building2}
               tone="neutral"
+              href="/concepts"
+              actionLabel="View business concepts"
             />
             <ExecutiveMetric
               label="Evidence sources"
@@ -254,6 +268,8 @@ export default function Dashboard() {
               detail={`${summary.workspaces} governed workspaces`}
               icon={Boxes}
               tone="neutral"
+              href="/sources"
+              actionLabel="View evidence sources"
             />
           </section>
 

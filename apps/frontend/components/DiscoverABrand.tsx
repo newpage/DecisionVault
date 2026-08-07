@@ -12,8 +12,8 @@ export default function DiscoverABrand({
       <Image
         src="/branding/discovera-logo.svg"
         alt="DiscoverA.ai"
-        width={compact ? 132 : 210}
-        height={compact ? 38 : 60}
+        width={compact ? 118 : 210}
+        height={compact ? 34 : 60}
         priority
       />
       <span>DiscoverA.ai Technology</span>

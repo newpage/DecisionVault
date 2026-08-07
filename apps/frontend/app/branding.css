@@ -39,7 +39,7 @@ body{
   object-fit:contain;
 }
 .discovera-signature.compact img{
-  max-width:132px;
+  max-width:118px;
 }
 .discovera-signature span{
   color:var(--dv-subtle);
