@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.deps import Principal, get_db, get_principal
 from app.modules.knowledge.repository import KnowledgeRepository
-from app.modules.knowledge.schemas import KnowledgeModuleStatus, UploadQueuedResponse
+from app.modules.knowledge.schemas import (
+    KnowledgeModuleStatus,
+    KnowledgeReviewRequest,
+    UploadQueuedResponse,
+)
 from app.modules.knowledge.service import (
     KnowledgeNotFoundError,
     KnowledgePermissionError,
@@ -64,6 +68,48 @@ def jobs(
     return service.list_ingestion_jobs(tenant_id=principal.tenant_id)
 
 
+@router.get("/governance")
+def governance_queue(
+    principal: Principal = Depends(get_principal),
+    service: KnowledgeService = Depends(get_knowledge_service),
+):
+    try:
+        response = service.governance_queue(
+            tenant_id=principal.tenant_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            can_review=principal.can("knowledge.approve"),
+        )
+        response["reviewer"] = {
+            "id": principal.user.id,
+            "name": principal.user.full_name,
+            "email": principal.user.email,
+        }
+        return response
+    except KnowledgePermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/governance/{card_id}")
+def governance_detail(
+    card_id: str,
+    principal: Principal = Depends(get_principal),
+    service: KnowledgeService = Depends(get_knowledge_service),
+):
+    try:
+        return service.governance_detail(
+            card_id=card_id,
+            tenant_id=principal.tenant_id,
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            can_review=principal.can("knowledge.approve"),
+        )
+    except KnowledgeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except KnowledgePermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
 @router.post("/knowledge/{card_id}/submit")
 def submit(
     card_id: str,
@@ -90,17 +136,50 @@ def submit(
 @router.post("/knowledge/{card_id}/approve")
 def approve(
     card_id: str,
+    payload: KnowledgeReviewRequest,
     principal: Principal = Depends(get_principal),
     service: KnowledgeService = Depends(get_knowledge_service),
 ):
     try:
-        return service.approve_card(
+        if payload.action != "approve_publish":
+            raise KnowledgeValidationError("Approve endpoint requires approve_publish")
+        return service.review_card(
             card_id=card_id,
             tenant_id=principal.tenant_id,
-            approver_id=principal.user.id,
+            reviewer_id=principal.user.id,
             can_approve=principal.can("knowledge.approve"),
             clearance_rank=principal.membership.clearance_rank,
             role_ids=principal.role_ids,
+            action=payload.action,
+            rationale=payload.rationale,
+            checklist=payload.checklist.model_dump(),
+        )
+    except KnowledgeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except KnowledgePermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except KnowledgeValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/knowledge/{card_id}/review")
+def review(
+    card_id: str,
+    payload: KnowledgeReviewRequest,
+    principal: Principal = Depends(get_principal),
+    service: KnowledgeService = Depends(get_knowledge_service),
+):
+    try:
+        return service.review_card(
+            card_id=card_id,
+            tenant_id=principal.tenant_id,
+            reviewer_id=principal.user.id,
+            can_approve=principal.can("knowledge.approve"),
+            clearance_rank=principal.membership.clearance_rank,
+            role_ids=principal.role_ids,
+            action=payload.action,
+            rationale=payload.rationale,
+            checklist=payload.checklist.model_dump(),
         )
     except KnowledgeNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

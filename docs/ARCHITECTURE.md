@@ -195,3 +195,20 @@ restrictive access policy is inherited; incompatible restrictive policies fail
 closed because combining them would require broader generic policy semantics.
 These clean-schema tables require pre-release database recreation; no migration
 is provided.
+
+## Knowledge governance review
+
+Governance Review remains a read/command surface inside the Knowledge bounded
+context. Its queue applies tenant, classification-clearance, and access-policy
+predicates before deriving risk priority or executive counts. Review details
+join evidence and source provenance with explicit tenant predicates; absent and
+unauthorized cards return the same not-found response.
+
+A submitted card may be approved and published, returned to governed draft, or
+rejected and retired. Every command requires the existing `knowledge.approve`
+permission, a completed human checklist, and a rationale. The card transition
+and audit event commit in one transaction. Approval may make an already
+AI-allowed card eligible for governed Decision Intelligence retrieval; AI may
+organize evidence and flag issues but cannot invoke any lifecycle command.
+These changes use existing Knowledge Card and audit fields and require no schema
+change or database migration.

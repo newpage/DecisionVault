@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     AuditEvent,
+    AccessPolicy,
     IngestionJob,
     KnowledgeCard,
+    KnowledgeEvidence,
     KnowledgeCardLessonProvenance,
     SourceDocument,
     Workspace,
@@ -88,6 +90,55 @@ class KnowledgeRepository:
                 ),
             )
         )
+
+    def list_review_cards(
+        self,
+        *,
+        tenant_id: str,
+        clearance_rank: int,
+        role_ids: set[str],
+    ) -> Sequence[KnowledgeCard]:
+        return self._db.scalars(
+            select(KnowledgeCard).where(
+                KnowledgeCard.tenant_id == tenant_id,
+                KnowledgeCard.lifecycle_status == "in_review",
+                KnowledgeCard.approval_status == "pending_review",
+                *authorized_knowledge_filters(
+                    clearance_rank=clearance_rank, role_ids=role_ids
+                ),
+            )
+        ).all()
+
+    def review_context(self, *, tenant_id: str, card_id: str) -> dict:
+        evidence = self._db.execute(
+            select(KnowledgeEvidence, SourceDocument)
+            .join(
+                SourceDocument,
+                (SourceDocument.id == KnowledgeEvidence.source_document_id)
+                & (SourceDocument.tenant_id == KnowledgeEvidence.tenant_id),
+            )
+            .where(
+                KnowledgeEvidence.tenant_id == tenant_id,
+                KnowledgeEvidence.knowledge_card_id == card_id,
+                SourceDocument.tenant_id == tenant_id,
+            )
+            .order_by(SourceDocument.created_at)
+        ).all()
+        card = self._db.scalar(
+            select(KnowledgeCard).where(
+                KnowledgeCard.tenant_id == tenant_id,
+                KnowledgeCard.id == card_id,
+            )
+        )
+        policy = None
+        if card and card.access_policy_id:
+            policy = self._db.scalar(
+                select(AccessPolicy).where(
+                    AccessPolicy.tenant_id == tenant_id,
+                    AccessPolicy.id == card.access_policy_id,
+                )
+            )
+        return {"evidence": evidence, "access_policy": policy}
 
     def create_source(
         self,

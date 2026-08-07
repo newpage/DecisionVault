@@ -178,8 +178,99 @@ def _assessment(tenant_id, decision_id, member_id, classification, rationale):
     )
 
 
+def _seed_governance_review_card(db: Session, tenant: Tenant) -> None:
+    title = "Critical network-alert Knowledge Card — containment escalation"
+    if db.scalar(
+        select(KnowledgeCard.id).where(
+            KnowledgeCard.tenant_id == tenant.id, KnowledgeCard.title == title
+        )
+    ):
+        return
+    workspace = db.scalar(
+        select(Workspace).where(Workspace.tenant_id == tenant.id).limit(1)
+    )
+    owner = db.scalar(
+        select(User).join(Membership, Membership.user_id == User.id).where(
+            Membership.tenant_id == tenant.id,
+            User.email == settings.demo_email,
+        )
+    )
+    concept = db.scalar(
+        select(BusinessConcept).where(BusinessConcept.tenant_id == tenant.id).limit(1)
+    )
+    if not workspace or not owner:
+        return
+    source = SourceDocument(
+        tenant_id=tenant.id,
+        workspace_id=workspace.id,
+        filename="09-critical-network-alert-review.json",
+        mime_type="application/json",
+        storage_key=f"{tenant.id}/payments-demo/09-review.json",
+        status="processed",
+        created_by=owner.id,
+    )
+    db.add(source)
+    db.flush()
+    card = KnowledgeCard(
+        tenant_id=tenant.id,
+        workspace_id=workspace.id,
+        business_concept_id=concept.id if concept else None,
+        title=title,
+        summary=(
+            "A coordinated card-testing attack reached 11.6x baseline with "
+            "$186,000 attempted exposure; human governance review is required."
+        ),
+        body=json.dumps(
+            {
+                "extraction_mode": "deterministic synthetic document extraction",
+                "risk_level": "critical",
+                "facts": [
+                    "Authorization attempts reached 11.6x baseline.",
+                    "38% of flagged accounts reused shared device fingerprints.",
+                    "Attempted exposure reached $186,000 in 24 hours.",
+                ],
+                "conflicts": [
+                    "Merchant narrative reports no material anomaly while network telemetry confirms an active coordinated attack."
+                ],
+                "missing_information": [
+                    "Independent verification that containment controls are effective.",
+                    "Merchant root-cause analysis and remediation evidence.",
+                ],
+                "policy_relevance": "Processing activation must remain blocked until critical fraud containment is independently verified.",
+                "intended_usage": "Critical fraud evidence for merchant underwriting, activation controls, and governed risk explanation.",
+                "provenance": source.filename,
+                "review_status": "pending human governance review",
+            }
+        ),
+        knowledge_type="network_risk_alert",
+        lifecycle_status="in_review",
+        approval_status="pending_review",
+        authority_level="network_alert",
+        classification_rank=50,
+        ai_usage_allowed=True,
+        trust_score=0.99,
+        owner_id=owner.id,
+    )
+    db.add(card)
+    db.flush()
+    db.add(
+        KnowledgeEvidence(
+            tenant_id=tenant.id,
+            knowledge_card_id=card.id,
+            source_document_id=source.id,
+            locator="Synthetic network telemetry · 24-hour escalation",
+            excerpt=card.summary,
+        )
+    )
+
+
 def seed_payments_demo(db: Session) -> None:
-    if db.scalar(select(Tenant.id).limit(1)):
+    existing_tenant = db.scalar(
+        select(Tenant).where(Tenant.slug == settings.demo_tenant_slug)
+    )
+    if existing_tenant:
+        _seed_governance_review_card(db, existing_tenant)
+        db.commit()
         return
 
     tenant = Tenant(slug=settings.demo_tenant_slug, name="Global Payments Demo")
@@ -318,6 +409,8 @@ def seed_payments_demo(db: Session) -> None:
             )
         )
         cards.append((card, chunk, source))
+
+    _seed_governance_review_card(db, tenant)
 
     analysis = {
         "mode": "Deterministic analysis from governed synthetic evidence",
