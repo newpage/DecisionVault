@@ -65,12 +65,12 @@ export default function Knowledge() {
         {cards.map((card) => {
           const structured = extraction(card.body);
           return (
-            <Card key={card.id}>
+            <Card key={card.id} className="knowledge-detail-card">
               <div className="row between">
                 <strong>{card.title}</strong>
                 <span className="badge">{card.lifecycle_status}</span>
               </div>
-              <p>{card.summary}</p>
+              <p className="knowledge-summary">{card.summary}</p>
               <div className="row">
                 <span className="badge">{card.authority_level.replaceAll("_", " ")}</span>
                 <span className="badge">Trust {Math.round(card.trust_score * 100)}%</span>

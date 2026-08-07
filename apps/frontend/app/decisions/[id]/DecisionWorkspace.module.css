@@ -118,3 +118,11 @@
 .reviewCard p{font-size:12px}
 .helperText{font-size:11px}
 .candidateList button span{font-size:10px}
+
+/* Large-monitor readability for substantive Decision detail content. */
+.recommendation p{font-size:15px;line-height:1.7}
+.finding,.controlList>div{font-size:15px;line-height:1.65}
+.evidenceCard p{font-size:15px;line-height:1.7}
+.timeline p{font-size:14px;line-height:1.65}
+.reviewCard p{font-size:14px;line-height:1.65}
+.helperText{font-size:13px;line-height:1.6}
