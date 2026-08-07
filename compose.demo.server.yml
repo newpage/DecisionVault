@@ -1,0 +1,11 @@
+services:
+  backend:
+    environment:
+      CORS_ORIGINS: https://decisionvault.discover.ai
+
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: /api/v1
+    environment:
+      NEXT_PUBLIC_API_URL: /api/v1
