@@ -54,3 +54,17 @@
 @media(max-width:1050px){.chartGrid,.intelligenceGrid{grid-template-columns:1fr}.wideWidget{grid-row:auto}}
 @media(max-width:760px){.pageHeader{flex-direction:column}.headerActions{width:100%;justify-content:space-between}.briefing{grid-template-columns:auto 1fr}.briefing>a{grid-column:2;justify-self:start}.loadingGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.metricGrid,.loadingGrid,.operatingList{grid-template-columns:1fr}}
+
+/* Presentation readability: keep dense executive layouts legible at 1440×900. */
+.eyebrow{font-size:11px}
+.pageHeader p{font-size:15px}
+.updateStatus{font-size:12px}
+.updateStatus small{font-size:10px}
+.briefing h2{font-size:19px}
+.briefing p,.briefing>a{font-size:12px}
+.insight strong,.alert strong{font-size:13px}
+.insight p{font-size:12px}
+.alert small{font-size:11px}
+.clearState,.emptyState{font-size:12px}
+.operatingList small{font-size:11px}
+.widgetLink{font-size:12px}

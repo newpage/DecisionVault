@@ -91,3 +91,30 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:1150px){.scoreGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.workspaceGrid{grid-template-columns:1fr}}
 @media(max-width:760px){.hero{align-items:flex-start;flex-direction:column}.heroActions{width:100%}.statusBadge{flex:1}.scoreGrid{grid-template-columns:1fr}.evidenceHeader,.evidenceMeta,.reviewHeader{flex-direction:column}.evidenceBadges{flex-wrap:wrap}.selectionControls,.removalControls,.approvalControls{grid-template-columns:1fr}}
+
+/* Presentation readability: increase dense labels and supporting copy. */
+.backLink{font-size:12px}
+.eyebrow{font-size:11px}
+.hero p{font-size:14px}
+.metaBar span{font-size:12px}
+.metaBar b{font-size:10px}
+.tabs button{font-size:12px}
+.finding,.controlList>div{font-size:12px}
+.clearState,.emptyPanel,.futurePanel{font-size:12px}
+.profile dt{font-size:11px}
+.profile dd{font-size:12px}
+.evidenceHeader strong{font-size:14px}
+.evidenceHeader span,.evidenceMeta{font-size:11px}
+.evidenceCard p{font-size:12px}
+.removeEvidence{font-size:11px}
+.selectionControls select,.selectionControls input,.selectionControls button,.removalControls input,.removalControls button{font-size:12px}
+.timeline strong{font-size:13px}
+.timeline p{font-size:12px}
+.timeline time{font-size:10px}
+.controlGroup strong,.reviewCard strong{font-size:13px}
+.controlGroup input,.controlGroup select,.controlGroup textarea,.findingControls input,.findingControls textarea{font-size:12px}
+.controlGroup button,.reviewCard button,.primaryAction{font-size:12px}
+.reviewCard span{font-size:11px}
+.reviewCard p{font-size:12px}
+.helperText{font-size:11px}
+.candidateList button span{font-size:10px}

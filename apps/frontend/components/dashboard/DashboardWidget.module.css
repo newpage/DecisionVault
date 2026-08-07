@@ -33,3 +33,7 @@
 .body{
   padding:20px 22px;
 }
+
+/* Presentation readability. */
+.header h2{font-size:18px}
+.eyebrow{font-size:11px}

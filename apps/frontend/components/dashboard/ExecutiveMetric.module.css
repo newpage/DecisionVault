@@ -24,7 +24,7 @@
   justify-content:space-between;
   gap:12px;
   color:var(--dv-muted);
-  font-size:11px;
+  font-size:13px;
 }
 .icon{
   width:32px;
@@ -44,7 +44,7 @@
 }
 .metric small{
   color:var(--dv-subtle);
-  font-size:10px;
+  font-size:12px;
 }
 .positive{border-top:2px solid #55cbaa}
 .warning{border-top:2px solid #dda958}

@@ -1,8 +1,8 @@
 .card{padding:17px;border:1px solid var(--dv-border);border-top:2px solid #5f86b5;border-radius:15px;background:linear-gradient(145deg,#0f1e31,#0a1626)}
-.top{display:flex;justify-content:space-between;gap:12px;color:var(--dv-muted);font-size:10px}
+.top{display:flex;justify-content:space-between;gap:12px;color:var(--dv-muted);font-size:12px}
 .top svg{color:#aebed1}
 .card strong{display:block;margin:14px 0 7px;font-size:28px;line-height:1;letter-spacing:-.035em}
-.card small{color:var(--dv-subtle);font-size:9px}
+.card small{color:var(--dv-subtle);font-size:11px}
 .positive{border-top-color:#55cbaa}
 .warning{border-top-color:#d8aa58}
 .critical{border-top-color:#df7474}
