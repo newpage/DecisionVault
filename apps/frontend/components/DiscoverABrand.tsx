@@ -16,7 +16,7 @@ export default function DiscoverABrand({
         height={compact ? 38 : 60}
         priority
       />
-      <span>A DiscoverA.ai Technology</span>
+      <span>DiscoverA.ai Technology</span>
     </div>
   );
 }

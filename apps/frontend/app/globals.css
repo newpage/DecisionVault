@@ -17,6 +17,6 @@
 /* Presentation readability for substantive policy, evidence, and AI detail copy. */
 .knowledge-detail-card .knowledge-summary,
 .knowledge-detail-card .notice,
-.citation{font-size:15px;line-height:1.7}
+.citation{font-size:16px;line-height:1.72}
 .knowledge-detail-card .notice{margin-top:16px;padding:16px;border-radius:12px;background:#091426;border:1px solid #1d2b42;color:#b9c8dc}
 .knowledge-detail-card .notice li{margin:7px 0}

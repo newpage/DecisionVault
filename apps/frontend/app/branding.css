@@ -44,8 +44,8 @@ body{
 .discovera-signature span{
   color:var(--dv-subtle);
   font-size:9px;
-  text-transform:uppercase;
-  letter-spacing:.12em;
+  font-weight:700;
+  letter-spacing:.06em;
 }
 .dv-sidebar-product{
   margin:18px 0 20px;
