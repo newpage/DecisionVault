@@ -17,6 +17,23 @@ This roadmap records direction without promising dates or silently changing the 
 - Establish dependency, secret, backup-restore, and disaster-recovery verification routines.
 - Add worker reliability coverage for retries, duplicate work, and Ollama outages.
 
+## Next: productize the presentation capabilities
+
+The Global Payments presentation introduced reusable product capabilities with
+synthetic, scenario-specific content. Preserve the capabilities while replacing
+the presentation assumptions through the following product work:
+
+- Replace hard-coded demo content with tenant-configurable data.
+- Make executive questions configurable by industry and workspace.
+- Generate business-impact summaries from governed evidence.
+- Generalize finding-to-source traceability chains across every decision.
+- Place Presenter Mode behind an explicit role, permission, or workspace setting.
+- Preserve visible truth labels so deterministic scenarios, synthetic data,
+  optional live AI, and predictive outputs cannot be confused with one another.
+
+These items must retain tenant isolation, evidence provenance, authorization,
+non-disclosing access behavior, and human-controlled approval boundaries.
+
 ## Later: production-readiness decisions
 
 - Define observability, retention, capacity, and recovery objectives.
@@ -25,4 +42,3 @@ This roadmap records direction without promising dates or silently changing the 
 - Define release promotion, compatibility, and support policies.
 
 Product features and delivery dates require separate prioritization. See [roadmap working agreement](roadmap/README.md).
-
